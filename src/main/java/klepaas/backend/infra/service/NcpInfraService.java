@@ -2,7 +2,7 @@ package klepaas.backend.infra.service;
 
 import klepaas.backend.deployment.entity.Deployment;
 import klepaas.backend.infra.dto.BuildResult;
-import klepaas.backend.infra.entity.CloudInfraProvider;
+import klepaas.backend.infra.CloudInfraProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

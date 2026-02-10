@@ -1,4 +1,4 @@
-package klepaas.backend.infra.entity;
+package klepaas.backend.infra;
 
 import klepaas.backend.deployment.entity.Deployment;
 import klepaas.backend.infra.dto.BuildResult;

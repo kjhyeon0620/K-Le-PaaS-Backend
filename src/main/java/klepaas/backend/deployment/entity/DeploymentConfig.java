@@ -6,6 +6,11 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Entity
 @Getter
@@ -25,24 +30,31 @@ public class DeploymentConfig extends BaseTimeEntity {
 
     private int maxReplicas;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "TEXT")
-    private String envVars; // json String으로 저장
+    private Map<String, String> envVars = new HashMap<>();
+
+    @Column(nullable = false)
+    private int containerPort;
 
     @Column(nullable = false)
     private String domainUrl;
 
     @Builder
-    public DeploymentConfig(SourceRepository sourceRepository, int minReplicas, int maxReplicas, String envVars, String domainUrl) {
+    public DeploymentConfig(SourceRepository sourceRepository, int minReplicas, int maxReplicas,
+                            Map<String, String> envVars, int containerPort, String domainUrl) {
         this.sourceRepository = sourceRepository;
         this.minReplicas = minReplicas;
         this.maxReplicas = maxReplicas;
-        this.envVars = envVars;
+        this.envVars = envVars != null ? envVars : new HashMap<>();
+        this.containerPort = containerPort > 0 ? containerPort : 8080;
         this.domainUrl = domainUrl;
     }
 
-    public void updateConfig(int min, int max, String envVars) {
+    public void updateConfig(int min, int max, Map<String, String> envVars, int containerPort) {
         this.minReplicas = min;
         this.maxReplicas = max;
-        this.envVars = envVars;
+        this.envVars = envVars != null ? envVars : new HashMap<>();
+        this.containerPort = containerPort > 0 ? containerPort : 8080;
     }
 }

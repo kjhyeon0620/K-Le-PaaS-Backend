@@ -1,6 +1,8 @@
 spring:
   application:
     name: backend
+  jackson:
+    property-naming-strategy: SNAKE_CASE
 cloud:
   ncp:
     credentials:
