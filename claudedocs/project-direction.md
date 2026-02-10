@@ -325,13 +325,13 @@ private Map<String, String> envVars;  // 수동 JSON 파싱 불필요, 타입 �
 - [x] Entity 설계 및 구현
 - [x] Repository 구현
 - [x] Infrastructure 인터페이스 설계
-- [ ] `Role` enum 값 정의 (USER, ADMIN)
-- [ ] `User`에 BaseTimeEntity 상속 추가
-- [ ] `DeploymentConfig.envVars` → `@JdbcTypeCode(SqlTypes.JSON)` + `Map<String, String>` 변경
-- [ ] `DeploymentConfig`에 `containerPort` 필드 추가 (기본값 8080)
-- [ ] `UserRepository` 생성
-- [ ] `CloudInfraProvider` 패키지 위치 정리
-- [ ] Jackson snake_case 설정 추가
+- [x] `Role` enum 값 정의 (USER, ADMIN)
+- [x] `User`에 BaseTimeEntity 상속 추가
+- [x] `DeploymentConfig.envVars` → `@JdbcTypeCode(SqlTypes.JSON)` + `Map<String, String>` 변경
+- [x] `DeploymentConfig`에 `containerPort` 필드 추가 (기본값 8080)
+- [x] `UserRepository` 생성
+- [x] `CloudInfraProvider` 패키지 위치 정리
+- [x] Jackson snake_case 설정 추가
 
 ### Phase 2: 서비스 레이어 + API 뼈대
 - [ ] `GlobalExceptionHandler` 구현
