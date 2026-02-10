@@ -37,3 +37,8 @@ out/
 .vscode/
 
 .env
+
+### Claude Code / Serena ###
+.claude/
+.serena/
+nul

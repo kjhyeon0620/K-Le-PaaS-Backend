@@ -1,0 +1,36 @@
+package klepaas.backend.user.entity;
+
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@Entity
+@Table(name = "users")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true)
+    private String email;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Enumerated(EnumType.STRING)
+    private Role role;
+
+    private String providerId; // GitHub ID
+
+    @Builder
+    public User(String email, String name, Role role, String providerId) {
+        this.email = email;
+        this.name = name;
+        this.role = role;
+        this.providerId = providerId;
+    }
+}

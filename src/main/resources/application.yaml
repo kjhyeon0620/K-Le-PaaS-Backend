@@ -1,3 +1,19 @@
 spring:
   application:
     name: backend
+cloud:
+  ncp:
+    credentials:
+      # [보안] 실제 값은 환경변수(${NCP_ACCESS_KEY})로 주입받는 것을 권장
+      access-key: ${NCP_ACCESS_KEY:your-access-key-here}
+      secret-key: ${NCP_SECRET_KEY:your-secret-key-here}
+
+    region: ap-northeast-2
+
+    storage:
+      endpoint: https://kr.object.ncloudstorage.com
+      bucket: k-le-paas-build-source # 미리 생성해둔 버킷 이름
+
+    api:
+      # NCP의 API Gateway 주소 (서비스마다 다를 수 있음, 예시)
+      base-url: https://nks.apigw.ntruss.com
