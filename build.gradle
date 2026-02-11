@@ -37,6 +37,23 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// AWS SDK for Java V2
+	// BOM을 사용하여 하위 모듈들의 버전을 자동으로 맞춤
+	implementation platform('software.amazon.awssdk:bom:2.21.1')
+	implementation 'software.amazon.awssdk:s3'
+
+	// XML 처리 (S3 응답 파싱 시)
+	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml'
+
+	// auth
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+	// K8s client (fabric8)
+	implementation 'io.fabric8:kubernetes-client:7.2.0'
 }
 
 tasks.named('test') {

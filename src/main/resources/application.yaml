@@ -1,3 +1,56 @@
 spring:
   application:
     name: backend
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+  datasource:
+    url: jdbc:h2:mem:klepaas
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    defer-datasource-initialization: true
+  h2:
+    console:
+      enabled: true
+
+app:
+  version: 0.0.1-SNAPSHOT
+
+jwt:
+  secret: ${JWT_SECRET:default-dev-secret-key-must-be-at-least-32-characters-long}
+  access-token-expiry: 3600000    # 1시간
+  refresh-token-expiry: 604800000 # 7일
+
+github:
+  client-id: ${GITHUB_CLIENT_ID:your-client-id}
+  client-secret: ${GITHUB_CLIENT_SECRET:your-client-secret}
+  redirect-uri: ${GITHUB_REDIRECT_URI:http://localhost:3000/auth/callback}
+
+cloud:
+  ncp:
+    credentials:
+      access-key: ${NCP_ACCESS_KEY:your-access-key-here}
+      secret-key: ${NCP_SECRET_KEY:your-secret-key-here}
+    region: ap-northeast-2
+    storage:
+      endpoint: https://kr.object.ncloudstorage.com
+      bucket: k-le-paas-build-source
+    api:
+      base-url: https://nks.apigw.ntruss.com
+    source-build:
+      base-url: https://sourcebuild.apigw.ntruss.com
+    container-registry:
+      endpoint: ${NCR_ENDPOINT:your-registry.kr.ncr.ntruss.com}
+
+kubernetes:
+  namespace: ${K8S_NAMESPACE:default}
+
+deployment:
+  pipeline:
+    poll-initial-interval: 10000
+    poll-max-interval: 60000
+    build-timeout: 1800000
