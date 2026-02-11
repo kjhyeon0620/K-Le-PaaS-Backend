@@ -23,7 +23,15 @@ public enum ErrorCode {
     DEPLOYMENT_CONFIG_NOT_FOUND(HttpStatus.NOT_FOUND, "DEPLOY_002", "배포 설정을 찾을 수 없습니다"),
 
     // User
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "사용자를 찾을 수 없습니다");
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_001", "사용자를 찾을 수 없습니다"),
+
+    // Infrastructure
+    SOURCE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "INFRA_001", "소스 업로드에 실패했습니다"),
+    BUILD_TRIGGER_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "INFRA_002", "빌드 트리거에 실패했습니다"),
+    BUILD_TIMEOUT(HttpStatus.INTERNAL_SERVER_ERROR, "INFRA_003", "빌드 시간이 초과되었습니다"),
+    BUILD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "INFRA_004", "빌드에 실패했습니다"),
+    DEPLOY_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "INFRA_005", "배포에 실패했습니다"),
+    NCP_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "INFRA_006", "NCP API 호출에 실패했습니다");
 
     private final HttpStatus httpStatus;
     private final String code;

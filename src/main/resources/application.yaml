@@ -41,3 +41,16 @@ cloud:
       bucket: k-le-paas-build-source
     api:
       base-url: https://nks.apigw.ntruss.com
+    source-build:
+      base-url: https://sourcebuild.apigw.ntruss.com
+    container-registry:
+      endpoint: ${NCR_ENDPOINT:your-registry.kr.ncr.ntruss.com}
+
+kubernetes:
+  namespace: ${K8S_NAMESPACE:default}
+
+deployment:
+  pipeline:
+    poll-initial-interval: 10000
+    poll-max-interval: 60000
+    build-timeout: 1800000

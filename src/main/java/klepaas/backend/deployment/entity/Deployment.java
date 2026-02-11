@@ -56,10 +56,20 @@ public class Deployment extends BaseTimeEntity {
 
     // --- 비즈니스 로직 메서드 ---
 
+    // 소스 업로드 시작
+    public void startUpload() {
+        this.status = DeploymentStatus.UPLOADING_SOURCE;
+    }
+
     // 소스 업로드 완료 시
     public void markAsUploaded(String storageObjectKey) {
         this.storageObjectKey = storageObjectKey;
         this.status = DeploymentStatus.BUILDING;
+    }
+
+    // K8s 배포 시작
+    public void startDeploying() {
+        this.status = DeploymentStatus.DEPLOYING;
     }
 
     // 외부 빌드 시작 시

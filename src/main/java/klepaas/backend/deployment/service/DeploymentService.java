@@ -7,6 +7,8 @@ import klepaas.backend.deployment.repository.DeploymentRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.global.exception.EntityNotFoundException;
 import klepaas.backend.global.exception.ErrorCode;
+import klepaas.backend.infra.CloudInfraProviderFactory;
+import klepaas.backend.infra.kubernetes.KubernetesManifestGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,6 +26,9 @@ public class DeploymentService {
 
     private final DeploymentRepository deploymentRepository;
     private final SourceRepositoryRepository sourceRepositoryRepository;
+    private final DeploymentPipelineService pipelineService;
+    private final CloudInfraProviderFactory infraProviderFactory;
+    private final KubernetesManifestGenerator k8sGenerator;
 
     @Transactional
     public DeploymentResponse createDeployment(CreateDeploymentRequest request) {
@@ -37,9 +42,11 @@ public class DeploymentService {
                 .build();
         deploymentRepository.save(deployment);
 
-        // TODO: Phase 4 - CloudInfraProvider를 통한 실제 빌드/배포 트리거
         log.info("Deployment created: id={}, repo={}/{}, branch={}", deployment.getId(),
                 repository.getOwner(), repository.getRepoName(), request.branchName());
+
+        // 비동기 파이프라인 실행 (즉시 응답, 백그라운드 빌드/배포)
+        pipelineService.executePipeline(deployment.getId(), request.gitToken());
 
         return DeploymentResponse.from(deployment);
     }
@@ -65,25 +72,34 @@ public class DeploymentService {
         deploymentRepository.findById(deploymentId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_NOT_FOUND));
 
-        // TODO: Phase 4 - NCP에서 실제 빌드/배포 로그 조회
-        return new DeploymentLogResponse(deploymentId, List.of("로그 조회는 Phase 4에서 구현 예정입니다."));
+        // TODO: Phase 5+ - NCP에서 실제 빌드/배포 로그 조회
+        return new DeploymentLogResponse(deploymentId, List.of("로그 조회 기능은 향후 구현 예정입니다."));
     }
 
     @Transactional
     public void scaleDeployment(Long deploymentId, ScaleRequest request) {
-        deploymentRepository.findById(deploymentId)
+        Deployment deployment = deploymentRepository.findById(deploymentId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_NOT_FOUND));
 
-        // TODO: Phase 4 - CloudInfraProvider.scaleService() 호출
-        log.info("Scale requested: deploymentId={}, replicas={}", deploymentId, request.replicas());
+        SourceRepository repo = deployment.getSourceRepository();
+        String appName = repo.getOwner() + "-" + repo.getRepoName();
+        k8sGenerator.scale(appName, request.replicas());
+
+        log.info("Scale completed: deploymentId={}, replicas={}", deploymentId, request.replicas());
     }
 
     @Transactional
     public void restartDeployment(Long deploymentId) {
-        deploymentRepository.findById(deploymentId)
+        Deployment deployment = deploymentRepository.findById(deploymentId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_NOT_FOUND));
 
-        // TODO: Phase 4 - 재배포 로직
-        log.info("Restart requested: deploymentId={}", deploymentId);
+        // 재배포: 동일 설정으로 새 배포 파이프라인 실행은 gitToken이 필요하므로
+        // 현재는 K8s rollout restart로 처리
+        SourceRepository repo = deployment.getSourceRepository();
+        String appName = repo.getOwner() + "-" + repo.getRepoName();
+        k8sGenerator.scale(appName, 0);
+        k8sGenerator.scale(appName, 1);
+
+        log.info("Restart completed: deploymentId={}", deploymentId);
     }
 }

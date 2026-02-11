@@ -51,6 +51,9 @@ dependencies {
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+	// K8s client (fabric8)
+	implementation 'io.fabric8:kubernetes-client:7.2.0'
 }
 
 tasks.named('test') {
