@@ -51,10 +51,11 @@ public class DeploymentConfig extends BaseTimeEntity {
         this.domainUrl = domainUrl;
     }
 
-    public void updateConfig(int min, int max, Map<String, String> envVars, int containerPort) {
+    public void updateConfig(int min, int max, Map<String, String> envVars, int containerPort, String domainUrl) {
         this.minReplicas = min;
         this.maxReplicas = max;
         this.envVars = envVars != null ? envVars : new HashMap<>();
         this.containerPort = containerPort > 0 ? containerPort : 8080;
+        this.domainUrl = domainUrl;
     }
 }

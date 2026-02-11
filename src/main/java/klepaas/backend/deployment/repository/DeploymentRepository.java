@@ -12,4 +12,7 @@ public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
     // SourceRepository 정보는 반드시 필요하므로 fetch join 걸기
     @EntityGraph(attributePaths = {"sourceRepository"})
     Page<Deployment> findBySourceRepositoryId(Long sourceRepositoryId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"sourceRepository"})
+    Page<Deployment> findBySourceRepositoryUserId(Long userId, Pageable pageable);
 }
