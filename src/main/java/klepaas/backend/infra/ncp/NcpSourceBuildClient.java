@@ -21,7 +21,7 @@ public class NcpSourceBuildClient {
     private final NcpApiSigner apiSigner;
 
     public NcpSourceBuildClient(
-            @Qualifier("ncpSourceBuildClient") RestClient sourceBuildClient,
+            @Qualifier("sourceBuildRestClient") RestClient sourceBuildClient,
             NcpApiSigner apiSigner
     ) {
         this.sourceBuildClient = sourceBuildClient;

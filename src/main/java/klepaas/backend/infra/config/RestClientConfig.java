@@ -35,7 +35,7 @@ public class RestClientConfig {
 
     // NCP SourceBuild API 호출용 클라이언트
     @Bean
-    public RestClient ncpSourceBuildClient() {
+    public RestClient sourceBuildRestClient() {
         return RestClient.builder()
                 .baseUrl(ncpSourceBuildBaseUrl)
                 .defaultHeader("Content-Type", "application/json")
