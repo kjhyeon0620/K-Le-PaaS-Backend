@@ -11,6 +11,9 @@ public class RestClientConfig {
     @Value("${cloud.ncp.api.base-url}")
     private String ncpApiBaseUrl;
 
+    @Value("${cloud.ncp.source-build.base-url}")
+    private String ncpSourceBuildBaseUrl;
+
     // GitHub API 호출용 클라이언트
     @Bean
     public RestClient githubClient() {
@@ -21,11 +24,20 @@ public class RestClientConfig {
                 .build();
     }
 
-    // NCP API (SourceBuild/Deploy) 호출용 클라이언트
+    // NCP API (NKS 등) 호출용 클라이언트
     @Bean
     public RestClient ncpApiClient() {
         return RestClient.builder()
                 .baseUrl(ncpApiBaseUrl)
+                .defaultHeader("Content-Type", "application/json")
+                .build();
+    }
+
+    // NCP SourceBuild API 호출용 클라이언트
+    @Bean
+    public RestClient sourceBuildRestClient() {
+        return RestClient.builder()
+                .baseUrl(ncpSourceBuildBaseUrl)
                 .defaultHeader("Content-Type", "application/json")
                 .build();
     }

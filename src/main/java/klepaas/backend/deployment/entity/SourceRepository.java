@@ -35,6 +35,9 @@ public class SourceRepository extends BaseTimeEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
+    // NCP SourceBuild 프로젝트 ID (최초 빌드 시 생성 후 캐싱)
+    private String externalBuildProjectId;
+
     @Builder
     public SourceRepository(User user, String owner, String repoName, String gitUrl, CloudVendor cloudVendor) {
         this.user = user;
@@ -47,5 +50,9 @@ public class SourceRepository extends BaseTimeEntity {
     // 도메인 로직: 클라우드 벤더 변경 (마이그레이션 시 사용)
     public void switchCloudVendor(CloudVendor newVendor) {
         this.cloudVendor = newVendor;
+    }
+
+    public void assignBuildProjectId(String projectId) {
+        this.externalBuildProjectId = projectId;
     }
 }
