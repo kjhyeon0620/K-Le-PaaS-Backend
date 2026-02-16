@@ -23,20 +23,63 @@ public class CommandLog extends BaseTimeEntity {
     private User user;
 
     @Column(nullable = false)
-    private String rawCommand; // "nginx 3개로 늘려줘"
+    private String rawCommand;
 
-    private String interpretedIntent; // "SCALE"
+    @Enumerated(EnumType.STRING)
+    private Intent interpretedIntent;
 
-    private boolean isExecuted; // 실제 실행 여부
+    @Column(columnDefinition = "TEXT")
+    private String intentArgs;
+
+    @Enumerated(EnumType.STRING)
+    private RiskLevel riskLevel;
+
+    private boolean requiresConfirmation;
+
+    private boolean confirmed;
+
+    private boolean isExecuted;
+
+    @Column(columnDefinition = "TEXT")
+    private String executionResult;
+
+    @Column(columnDefinition = "TEXT")
+    private String aiResponse;
 
     private String errorMessage;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "session_id")
+    private ConversationSession session;
+
     @Builder
-    public CommandLog(User user, String rawCommand, String interpretedIntent, boolean isExecuted, String errorMessage) {
+    public CommandLog(User user, String rawCommand, Intent interpretedIntent,
+                      String intentArgs, RiskLevel riskLevel, boolean requiresConfirmation,
+                      boolean isExecuted, String errorMessage, String aiResponse,
+                      ConversationSession session) {
         this.user = user;
         this.rawCommand = rawCommand;
         this.interpretedIntent = interpretedIntent;
+        this.intentArgs = intentArgs;
+        this.riskLevel = riskLevel;
+        this.requiresConfirmation = requiresConfirmation;
         this.isExecuted = isExecuted;
         this.errorMessage = errorMessage;
+        this.aiResponse = aiResponse;
+        this.session = session;
+    }
+
+    public void markExecuted(String executionResult) {
+        this.isExecuted = true;
+        this.executionResult = executionResult;
+    }
+
+    public void markFailed(String errorMessage) {
+        this.isExecuted = false;
+        this.errorMessage = errorMessage;
+    }
+
+    public void confirm(boolean confirmed) {
+        this.confirmed = confirmed;
     }
 }
