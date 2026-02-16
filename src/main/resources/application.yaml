@@ -54,3 +54,9 @@ deployment:
     poll-initial-interval: 10000
     poll-max-interval: 60000
     build-timeout: 1800000
+
+gemini:
+  api:
+    base-url: https://generativelanguage.googleapis.com
+    key: ${GEMINI_API_KEY:your-gemini-api-key}
+    model: ${GEMINI_MODEL:gemini-2.0-flash}
