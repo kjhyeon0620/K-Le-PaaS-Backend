@@ -14,6 +14,7 @@ import klepaas.backend.infra.CloudInfraProviderFactory;
 import klepaas.backend.infra.kubernetes.KubernetesManifestGenerator;
 import klepaas.backend.user.entity.Role;
 import klepaas.backend.user.entity.User;
+import klepaas.backend.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -47,6 +48,8 @@ class DeploymentServiceTest {
     private CloudInfraProviderFactory infraProviderFactory;
     @Mock
     private KubernetesManifestGenerator k8sGenerator;
+    @Mock
+    private UserRepository userRepository;
 
     @InjectMocks
     private DeploymentService deploymentService;

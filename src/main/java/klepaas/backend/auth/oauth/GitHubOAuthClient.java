@@ -1,5 +1,6 @@
 package klepaas.backend.auth.oauth;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import klepaas.backend.auth.dto.GitHubTokenResponse;
 import klepaas.backend.auth.dto.GitHubUserResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +32,7 @@ public class GitHubOAuthClient {
         return "https://github.com/login/oauth/authorize"
                 + "?client_id=" + clientId
                 + "&redirect_uri=" + redirectUri
-                + "&scope=user:email,read:user";
+                + "&scope=user:email,read:user,repo";
     }
 
     public GitHubTokenResponse exchangeCode(String code) {
@@ -54,10 +55,10 @@ public class GitHubOAuthClient {
     }
 
     private record TokenRequest(
-            String clientId,
-            String clientSecret,
+            @JsonProperty("client_id") String clientId,
+            @JsonProperty("client_secret") String clientSecret,
             String code,
-            String redirectUri
+            @JsonProperty("redirect_uri") String redirectUri
     ) {
     }
 }

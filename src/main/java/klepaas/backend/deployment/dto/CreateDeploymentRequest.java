@@ -7,6 +7,6 @@ public record CreateDeploymentRequest(
         @NotNull Long repositoryId,
         @NotBlank String branchName,
         @NotBlank String commitHash,
-        @NotBlank String gitToken
+        String gitToken
 ) {
 }

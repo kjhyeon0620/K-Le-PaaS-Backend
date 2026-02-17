@@ -34,7 +34,7 @@ public class ActionDispatcher {
         log.info("Action 실행: intent={}, args={}", parsedIntent.intent(), args);
 
         return switch (parsedIntent.intent()) {
-            case DEPLOY -> executeDeploy(args, gitToken);
+            case DEPLOY -> executeDeploy(args, gitToken, userId);
             case SCALE -> executeScale(args);
             case RESTART -> executeRestart(args);
             case STATUS -> executeStatus(args);
@@ -47,13 +47,13 @@ public class ActionDispatcher {
         };
     }
 
-    private String executeDeploy(Map<String, Object> args, String gitToken) {
+    private String executeDeploy(Map<String, Object> args, String gitToken, Long userId) {
         Long repositoryId = toLong(args.get("repository_id"));
         String branchName = (String) args.getOrDefault("branch_name", "main");
         String commitHash = (String) args.getOrDefault("commit_hash", "HEAD");
 
         var request = new CreateDeploymentRequest(repositoryId, branchName, commitHash, gitToken);
-        var response = deploymentService.createDeployment(request);
+        var response = deploymentService.createDeployment(request, userId);
         return "배포가 시작되었습니다. 배포 ID: " + response.id() + ", 상태: " + response.status();
     }
 

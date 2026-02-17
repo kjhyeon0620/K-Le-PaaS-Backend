@@ -26,6 +26,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -69,7 +70,7 @@ class DeploymentControllerTest {
                 DeploymentStatus.PENDING, null,
                 LocalDateTime.now(), null, LocalDateTime.now());
 
-        given(deploymentService.createDeployment(any())).willReturn(response);
+        given(deploymentService.createDeployment(any(), eq(1L))).willReturn(response);
 
         mockMvc.perform(post("/api/v1/deployments")
                         .with(user(testUser))
