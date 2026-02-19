@@ -54,10 +54,6 @@ public class AuthService {
                     return userRepository.save(newUser);
                 });
 
-        // GitHub access token 저장 (매 로그인마다 갱신)
-        user.updateGithubAccessToken(tokenResponse.accessToken());
-        userRepository.save(user);
-
         return jwtTokenProvider.createTokens(user.getId(), user.getEmail(), user.getRole());
     }
 

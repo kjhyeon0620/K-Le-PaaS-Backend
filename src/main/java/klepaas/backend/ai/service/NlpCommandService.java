@@ -101,7 +101,7 @@ public class NlpCommandService {
         String result = null;
         if (!requiresConfirmation) {
             try {
-                result = actionDispatcher.dispatch(parsedIntent, userId, null);
+                result = actionDispatcher.dispatch(parsedIntent, userId);
                 commandLog.markExecuted(result);
             } catch (Exception e) {
                 log.error("명령 실행 실패: intent={}", parsedIntent.intent(), e);
@@ -146,7 +146,7 @@ public class NlpCommandService {
         ParsedIntent parsedIntent = deserializeParsedIntent(commandLog);
         String result;
         try {
-            result = actionDispatcher.dispatch(parsedIntent, userId, request.gitToken());
+            result = actionDispatcher.dispatch(parsedIntent, userId);
             commandLog.markExecuted(result);
         } catch (Exception e) {
             log.error("확인 명령 실행 실패: intent={}", commandLog.getInterpretedIntent(), e);

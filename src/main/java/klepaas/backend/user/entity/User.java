@@ -27,6 +27,7 @@ public class User extends BaseTimeEntity {
 
     private String providerId; // GitHub ID
 
+    @Deprecated
     private String githubAccessToken;
 
     @Builder
@@ -37,6 +38,7 @@ public class User extends BaseTimeEntity {
         this.providerId = providerId;
     }
 
+    @Deprecated
     public void updateGithubAccessToken(String githubAccessToken) {
         this.githubAccessToken = githubAccessToken;
     }

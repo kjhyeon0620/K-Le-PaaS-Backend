@@ -32,7 +32,7 @@ public class GitHubOAuthClient {
         return "https://github.com/login/oauth/authorize"
                 + "?client_id=" + clientId
                 + "&redirect_uri=" + redirectUri
-                + "&scope=user:email,read:user,repo";
+                + "&scope=user:email,read:user";
     }
 
     public GitHubTokenResponse exchangeCode(String code) {

@@ -1,5 +1,6 @@
 package klepaas.backend.deployment.service;
 
+import klepaas.backend.auth.service.GitHubInstallationTokenService;
 import klepaas.backend.deployment.entity.Deployment;
 import klepaas.backend.deployment.entity.DeploymentConfig;
 import klepaas.backend.deployment.entity.SourceRepository;
@@ -31,6 +32,7 @@ public class DeploymentPipelineService {
     private final DeploymentConfigRepository deploymentConfigRepository;
     private final CloudInfraProviderFactory infraProviderFactory;
     private final KubernetesManifestGenerator k8sGenerator;
+    private final GitHubInstallationTokenService installationTokenService;
 
     @Value("${deployment.pipeline.poll-initial-interval:10000}")
     private long pollInitialInterval;
@@ -46,12 +48,12 @@ public class DeploymentPipelineService {
      * 새 스레드에서 실행되므로 Controller 트랜잭션과 분리됨.
      */
     @Async("deployExecutor")
-    public void executePipeline(Long deploymentId, String gitToken) {
+    public void executePipeline(Long deploymentId) {
         log.info("Pipeline started: deploymentId={}", deploymentId);
 
         try {
             // 1. 소스 업로드
-            String storageKey = executeUpload(deploymentId, gitToken);
+            String storageKey = executeUpload(deploymentId);
 
             // 2. 빌드 트리거
             BuildResult buildResult = executeBuildTrigger(deploymentId, storageKey);
@@ -73,15 +75,19 @@ public class DeploymentPipelineService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected String executeUpload(Long deploymentId, String gitToken) {
+    protected String executeUpload(Long deploymentId) {
         Deployment deployment = getDeployment(deploymentId);
         deployment.startUpload();
         deploymentRepository.save(deployment);
 
-        CloudInfraProvider provider = infraProviderFactory.getProvider(
-                deployment.getSourceRepository().getCloudVendor());
+        SourceRepository repo = deployment.getSourceRepository();
+        String installationToken = installationTokenService.getInstallationToken(
+                repo.getOwner(), repo.getRepoName());
 
-        String storageKey = provider.uploadSourceToStorage(gitToken, deployment);
+        CloudInfraProvider provider = infraProviderFactory.getProvider(
+                repo.getCloudVendor());
+
+        String storageKey = provider.uploadSourceToStorage(installationToken, deployment);
         deployment.markAsUploaded(storageKey);
         deploymentRepository.save(deployment);
 
