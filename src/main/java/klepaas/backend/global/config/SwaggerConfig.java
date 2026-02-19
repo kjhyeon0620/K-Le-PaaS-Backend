@@ -1,6 +1,8 @@
 package klepaas.backend.global.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import io.swagger.v3.core.jackson.ModelResolver;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -13,8 +15,11 @@ import org.springframework.context.annotation.Configuration;
 public class SwaggerConfig {
 
     @Bean
-    public io.swagger.v3.core.jackson.ModelResolver modelResolver(ObjectMapper objectMapper) {
-        return new io.swagger.v3.core.jackson.ModelResolver(objectMapper);
+    public ModelResolver modelResolver() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        // Swagger 문서의 DTO 필드명을 snake_case로 표시하도록 설정
+        objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+        return new ModelResolver(objectMapper);
     }
 
     @Bean

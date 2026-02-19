@@ -5,6 +5,7 @@ import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
+
 import io.fabric8.kubernetes.client.KubernetesClient;
 import klepaas.backend.deployment.entity.DeploymentConfig;
 import klepaas.backend.global.exception.BusinessException;
@@ -27,6 +28,9 @@ public class KubernetesManifestGenerator {
 
     @Value("${kubernetes.namespace:default}")
     private String namespace;
+
+    @Value("${kubernetes.image-pull-secret:ncp-cr}")
+    private String imagePullSecretName;
 
     /**
      * K8s Deployment + Service + Ingress 생성/업데이트
@@ -86,6 +90,9 @@ public class KubernetesManifestGenerator {
                             .withLabels(labels)
                         .endMetadata()
                         .withNewSpec()
+                            .withImagePullSecrets(new LocalObjectReferenceBuilder()
+                                    .withName(imagePullSecretName)
+                                    .build())
                             .withContainers(new ContainerBuilder()
                                     .withName(appName)
                                     .withImage(imageUri)

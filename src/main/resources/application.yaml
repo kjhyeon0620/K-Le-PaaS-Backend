@@ -4,13 +4,13 @@ spring:
   jackson:
     property-naming-strategy: SNAKE_CASE
   datasource:
-    url: jdbc:h2:mem:klepaas
+    url: jdbc:h2:file:./data/klepaas
     driver-class-name: org.h2.Driver
     username: sa
     password:
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: true
     defer-datasource-initialization: true
   h2:
@@ -37,21 +37,21 @@ github:
 cloud:
   ncp:
     credentials:
-      access-key: ${NCP_ACCESS_KEY:your-access-key-here}
-      secret-key: ${NCP_SECRET_KEY:your-secret-key-here}
+      access-key: ${NCP_ACCESS_KEY}
+      secret-key: ${NCP_SECRET_KEY}
     region: ap-northeast-2
     storage:
       endpoint: https://kr.object.ncloudstorage.com
-      bucket: k-le-paas-build-source
-    api:
-      base-url: https://nks.apigw.ntruss.com
-    source-build:
-      base-url: https://sourcebuild.apigw.ntruss.com
+      bucket: ${NCP_STORAGE_BUCKET}
     container-registry:
-      endpoint: ${NCR_ENDPOINT:your-registry.kr.ncr.ntruss.com}
+      endpoint: ${NCR_ENDPOINT}
 
 kubernetes:
   namespace: ${K8S_NAMESPACE:default}
+  image-pull-secret: ${K8S_IMAGE_PULL_SECRET:ncp-cr}
+
+kaniko:
+  image: ${KANIKO_IMAGE:gcr.io/kaniko-project/executor:latest}
 
 deployment:
   pipeline:
