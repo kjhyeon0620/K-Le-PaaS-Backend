@@ -29,6 +29,10 @@ github:
   client-id: ${GITHUB_CLIENT_ID}
   client-secret: ${GITHUB_CLIENT_SECRET}
   redirect-uri: ${GITHUB_REDIRECT_URI:http://localhost:3000/auth/callback}
+  app:
+    app-id: ${GITHUB_APP_ID}
+    private-key: ${GITHUB_APP_PRIVATE_KEY}
+    app-slug: ${GITHUB_APP_SLUG}
 
 cloud:
   ncp:

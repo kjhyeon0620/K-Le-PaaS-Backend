@@ -14,7 +14,6 @@ import klepaas.backend.infra.CloudInfraProviderFactory;
 import klepaas.backend.infra.kubernetes.KubernetesManifestGenerator;
 import klepaas.backend.user.entity.Role;
 import klepaas.backend.user.entity.User;
-import klepaas.backend.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -48,9 +47,6 @@ class DeploymentServiceTest {
     private CloudInfraProviderFactory infraProviderFactory;
     @Mock
     private KubernetesManifestGenerator k8sGenerator;
-    @Mock
-    private UserRepository userRepository;
-
     @InjectMocks
     private DeploymentService deploymentService;
 
@@ -89,7 +85,7 @@ class DeploymentServiceTest {
         @Test
         @DisplayName("성공: 배포 생성 후 비동기 파이프라인 실행")
         void success() {
-            var request = new CreateDeploymentRequest(1L, "main", "abc123", "ghp_token");
+            var request = new CreateDeploymentRequest(1L, "main", "abc123");
             given(sourceRepositoryRepository.findById(1L)).willReturn(Optional.of(testRepo));
             given(deploymentRepository.save(any(Deployment.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -98,13 +94,13 @@ class DeploymentServiceTest {
             assertThat(response.branchName()).isEqualTo("main");
             assertThat(response.commitHash()).isEqualTo("abc123");
             assertThat(response.status()).isEqualTo(DeploymentStatus.PENDING);
-            verify(pipelineService).executePipeline(any(), any());
+            verify(pipelineService).executePipeline(any());
         }
 
         @Test
         @DisplayName("실패: 존재하지 않는 레포지토리")
         void failRepositoryNotFound() {
-            var request = new CreateDeploymentRequest(999L, "main", "abc123", "ghp_token");
+            var request = new CreateDeploymentRequest(999L, "main", "abc123");
             given(sourceRepositoryRepository.findById(999L)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> deploymentService.createDeployment(request))

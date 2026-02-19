@@ -78,8 +78,7 @@ class DeploymentControllerTest {
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "repository_id", 1,
                                 "branch_name", "main",
-                                "commit_hash", "abc123",
-                                "git_token", "ghp_token"
+                                "commit_hash", "abc123"
                         ))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.status").value("PENDING"));
