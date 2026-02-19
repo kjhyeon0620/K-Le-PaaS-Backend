@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotNull;
 public record CreateDeploymentRequest(
         @NotNull Long repositoryId,
         @NotBlank String branchName,
-        @NotBlank String commitHash,
-        @NotBlank String gitToken
+        @NotBlank String commitHash
 ) {
 }

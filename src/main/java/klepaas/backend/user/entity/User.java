@@ -27,11 +27,19 @@ public class User extends BaseTimeEntity {
 
     private String providerId; // GitHub ID
 
+    @Deprecated
+    private String githubAccessToken;
+
     @Builder
     public User(String email, String name, Role role, String providerId) {
         this.email = email;
         this.name = name;
         this.role = role;
         this.providerId = providerId;
+    }
+
+    @Deprecated
+    public void updateGithubAccessToken(String githubAccessToken) {
+        this.githubAccessToken = githubAccessToken;
     }
 }

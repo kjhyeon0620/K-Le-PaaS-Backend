@@ -14,6 +14,22 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(GitHubAppInstallationRequiredException.class)
+    public ResponseEntity<ErrorResponse> handleGitHubAppInstallationRequired(
+            GitHubAppInstallationRequiredException e, HttpServletRequest request) {
+        ErrorCode errorCode = e.getErrorCode();
+        log.warn("GitHub App installation required: {}", e.getMessage());
+
+        ErrorResponse response = new ErrorResponse(
+                errorCode.name(),
+                errorCode.getCode(),
+                e.getMessage(),
+                request.getRequestURI(),
+                e.getInstallUrl()
+        );
+        return ResponseEntity.status(errorCode.getHttpStatus()).body(response);
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e, HttpServletRequest request) {
         ErrorCode errorCode = e.getErrorCode();

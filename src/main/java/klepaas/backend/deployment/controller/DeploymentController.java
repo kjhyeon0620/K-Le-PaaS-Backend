@@ -1,6 +1,7 @@
 package klepaas.backend.deployment.controller;
 
 import jakarta.validation.Valid;
+import klepaas.backend.auth.config.CustomUserDetails;
 import klepaas.backend.deployment.dto.*;
 import klepaas.backend.deployment.service.DeploymentService;
 import klepaas.backend.global.dto.ApiResponse;
@@ -8,8 +9,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Slf4j
@@ -22,14 +25,16 @@ public class DeploymentController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<DeploymentResponse> createDeployment(@Valid @RequestBody CreateDeploymentRequest request) {
-        return ApiResponse.success(deploymentService.createDeployment(request));
+    public ApiResponse<DeploymentResponse> createDeployment(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody CreateDeploymentRequest request) {
+        return ApiResponse.success(deploymentService.createDeployment(request, userDetails.getUserId()));
     }
 
     @GetMapping
     public ApiResponse<Page<DeploymentResponse>> getDeployments(
             @RequestParam Long repositoryId,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ApiResponse.success(deploymentService.getDeployments(repositoryId, pageable));
     }
 

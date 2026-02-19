@@ -111,8 +111,7 @@ class NlpControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "command_log_id", 1,
-                                "confirmed", true,
-                                "git_token", "ghp_token"
+                                "confirmed", true
                         ))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.result").value("배포 시작됨"));

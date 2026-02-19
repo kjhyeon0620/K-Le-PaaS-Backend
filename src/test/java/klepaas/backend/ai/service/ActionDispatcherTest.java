@@ -75,7 +75,7 @@ class ActionDispatcherTest {
         var statusResponse = new DeploymentStatusResponse(1L, DeploymentStatus.SUCCESS, null);
         given(deploymentService.getDeploymentStatus(1L)).willReturn(statusResponse);
 
-        String result = actionDispatcher.dispatch(parsedIntent, 1L, null);
+        String result = actionDispatcher.dispatch(parsedIntent, 1L);
 
         assertThat(result).contains("SUCCESS");
         verify(deploymentService).getDeploymentStatus(1L);
@@ -86,7 +86,7 @@ class ActionDispatcherTest {
     void dispatchScale() {
         var parsedIntent = new ParsedIntent(Intent.SCALE, Map.of("deployment_id", 1, "replicas", 3), 0.9, "스케일링");
 
-        String result = actionDispatcher.dispatch(parsedIntent, 1L, null);
+        String result = actionDispatcher.dispatch(parsedIntent, 1L);
 
         assertThat(result).contains("3개 레플리카");
         verify(deploymentService).scaleDeployment(eq(1L), any());
@@ -100,7 +100,7 @@ class ActionDispatcherTest {
         given(repositoryService.getRepositories(1L)).willReturn(List.of(repo));
 
         var parsedIntent = new ParsedIntent(Intent.LIST_REPOSITORIES, Map.of(), 0.9, "저장소 목록");
-        String result = actionDispatcher.dispatch(parsedIntent, 1L, null);
+        String result = actionDispatcher.dispatch(parsedIntent, 1L);
 
         assertThat(result).contains("owner/repo");
     }
@@ -109,7 +109,7 @@ class ActionDispatcherTest {
     @DisplayName("HELP 디스패치 시 도움말 반환")
     void dispatchHelp() {
         var parsedIntent = new ParsedIntent(Intent.HELP, Map.of(), 1.0, "도움말");
-        String result = actionDispatcher.dispatch(parsedIntent, 1L, null);
+        String result = actionDispatcher.dispatch(parsedIntent, 1L);
 
         assertThat(result).contains("사용 가능한 명령어");
     }

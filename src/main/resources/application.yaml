@@ -26,9 +26,13 @@ jwt:
   refresh-token-expiry: 604800000 # 7일
 
 github:
-  client-id: ${GITHUB_CLIENT_ID:your-client-id}
-  client-secret: ${GITHUB_CLIENT_SECRET:your-client-secret}
+  client-id: ${GITHUB_CLIENT_ID}
+  client-secret: ${GITHUB_CLIENT_SECRET}
   redirect-uri: ${GITHUB_REDIRECT_URI:http://localhost:3000/auth/callback}
+  app:
+    app-id: ${GITHUB_APP_ID}
+    private-key: ${GITHUB_APP_PRIVATE_KEY}
+    app-slug: ${GITHUB_APP_SLUG}
 
 cloud:
   ncp:
@@ -58,5 +62,5 @@ deployment:
 gemini:
   api:
     base-url: https://generativelanguage.googleapis.com
-    key: ${GEMINI_API_KEY:your-gemini-api-key}
-    model: ${GEMINI_MODEL:gemini-2.0-flash}
+    key: ${GEMINI_API_KEY}
+    model: ${GEMINI_MODEL:gemini-2.5-flash}

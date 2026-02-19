@@ -37,7 +37,12 @@ public enum ErrorCode {
     AI_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AI_001", "AI API 호출에 실패했습니다"),
     AI_PARSE_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "AI_002", "AI 응답 파싱에 실패했습니다"),
     COMMAND_LOG_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_003", "명령 기록을 찾을 수 없습니다"),
-    SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_004", "세션을 찾을 수 없습니다");
+    SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "AI_004", "세션을 찾을 수 없습니다"),
+
+    // GitHub App
+    GITHUB_APP_NOT_INSTALLED(HttpStatus.UNPROCESSABLE_ENTITY, "GH_001", "GitHub App이 저장소에 설치되지 않았습니다"),
+    GITHUB_APP_TOKEN_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "GH_002", "GitHub App 토큰 발급에 실패했습니다"),
+    GITHUB_APP_INSTALLATION_REQUIRED(HttpStatus.PRECONDITION_REQUIRED, "GH_003", "GitHub App 설치가 필요합니다");
 
     private final HttpStatus httpStatus;
     private final String code;

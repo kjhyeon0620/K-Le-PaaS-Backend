@@ -32,6 +32,11 @@ public class DeploymentService {
 
     @Transactional
     public DeploymentResponse createDeployment(CreateDeploymentRequest request) {
+        return createDeployment(request, null);
+    }
+
+    @Transactional
+    public DeploymentResponse createDeployment(CreateDeploymentRequest request, Long userId) {
         SourceRepository repository = sourceRepositoryRepository.findById(request.repositoryId())
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.REPOSITORY_NOT_FOUND));
 
@@ -45,8 +50,7 @@ public class DeploymentService {
         log.info("Deployment created: id={}, repo={}/{}, branch={}", deployment.getId(),
                 repository.getOwner(), repository.getRepoName(), request.branchName());
 
-        // 비동기 파이프라인 실행 (즉시 응답, 백그라운드 빌드/배포)
-        pipelineService.executePipeline(deployment.getId(), request.gitToken());
+        pipelineService.executePipeline(deployment.getId());
 
         return DeploymentResponse.from(deployment);
     }
@@ -93,8 +97,6 @@ public class DeploymentService {
         Deployment deployment = deploymentRepository.findById(deploymentId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.DEPLOYMENT_NOT_FOUND));
 
-        // 재배포: 동일 설정으로 새 배포 파이프라인 실행은 gitToken이 필요하므로
-        // 현재는 K8s rollout restart로 처리
         SourceRepository repo = deployment.getSourceRepository();
         String appName = repo.getOwner() + "-" + repo.getRepoName();
         k8sGenerator.scale(appName, 0);

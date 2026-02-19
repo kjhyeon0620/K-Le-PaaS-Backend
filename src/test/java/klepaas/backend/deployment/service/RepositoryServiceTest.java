@@ -1,5 +1,7 @@
 package klepaas.backend.deployment.service;
 
+import klepaas.backend.auth.config.GitHubAppConfig;
+import klepaas.backend.auth.oauth.GitHubAppClient;
 import klepaas.backend.deployment.dto.*;
 import klepaas.backend.deployment.entity.CloudVendor;
 import klepaas.backend.deployment.entity.DeploymentConfig;
@@ -8,6 +10,8 @@ import klepaas.backend.deployment.repository.DeploymentConfigRepository;
 import klepaas.backend.deployment.repository.SourceRepositoryRepository;
 import klepaas.backend.global.exception.DuplicateResourceException;
 import klepaas.backend.global.exception.EntityNotFoundException;
+import klepaas.backend.global.exception.GitHubAppInstallationRequiredException;
+import klepaas.backend.global.exception.GitHubAppNotInstalledException;
 import klepaas.backend.user.entity.Role;
 import klepaas.backend.user.entity.User;
 import klepaas.backend.user.repository.UserRepository;
@@ -40,6 +44,10 @@ class RepositoryServiceTest {
     private DeploymentConfigRepository deploymentConfigRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private GitHubAppClient gitHubAppClient;
+    @Mock
+    private GitHubAppConfig gitHubAppConfig;
 
     @InjectMocks
     private RepositoryService repositoryService;
@@ -87,6 +95,7 @@ class RepositoryServiceTest {
             given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
             given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
                     .willReturn(Optional.empty());
+            given(gitHubAppClient.getInstallationId("testowner", "testrepo")).willReturn(123L);
             given(sourceRepositoryRepository.save(any(SourceRepository.class))).willReturn(testRepo);
             given(deploymentConfigRepository.save(any(DeploymentConfig.class))).willReturn(testConfig);
 
@@ -96,6 +105,25 @@ class RepositoryServiceTest {
             assertThat(response.repoName()).isEqualTo("testrepo");
             assertThat(response.cloudVendor()).isEqualTo(CloudVendor.NCP);
             verify(deploymentConfigRepository).save(any(DeploymentConfig.class));
+        }
+
+        @Test
+        @DisplayName("실패: GitHub App 미설치 저장소")
+        void failGitHubAppNotInstalled() {
+            var request = new CreateRepositoryRequest("testowner", "testrepo",
+                    "https://github.com/testowner/testrepo", CloudVendor.NCP);
+            given(userRepository.findById(1L)).willReturn(Optional.of(testUser));
+            given(sourceRepositoryRepository.findByOwnerAndRepoName("testowner", "testrepo"))
+                    .willReturn(Optional.empty());
+            given(gitHubAppClient.getInstallationId("testowner", "testrepo"))
+                    .willThrow(new GitHubAppNotInstalledException("testowner", "testrepo"));
+            given(gitHubAppConfig.getAppSlug()).willReturn("klepaas");
+
+            assertThatThrownBy(() -> repositoryService.createRepository(1L, request))
+                    .isInstanceOf(GitHubAppInstallationRequiredException.class)
+                    .satisfies(e -> assertThat(
+                            ((GitHubAppInstallationRequiredException) e).getInstallUrl())
+                            .contains("github.com/apps/klepaas/installations/new"));
         }
 
         @Test

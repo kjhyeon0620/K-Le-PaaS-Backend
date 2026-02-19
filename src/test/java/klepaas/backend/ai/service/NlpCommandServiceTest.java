@@ -69,7 +69,7 @@ class NlpCommandServiceTest {
         given(intentParser.parse("test")).willReturn(
                 new klepaas.backend.ai.dto.ParsedIntent(Intent.HELP, java.util.Map.of(), 1.0, "도움말"));
         given(actionDispatcher.classifyRisk(Intent.HELP)).willReturn(RiskLevel.LOW);
-        given(actionDispatcher.dispatch(any(), eq(1L), isNull())).willReturn("도움말 결과");
+        given(actionDispatcher.dispatch(any(), eq(1L))).willReturn("도움말 결과");
         given(commandLogRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
         NlpCommandResponse response = nlpCommandService.processCommand(1L,
@@ -98,7 +98,7 @@ class NlpCommandServiceTest {
         assertThat(response.requiresConfirmation()).isTrue();
         assertThat(response.result()).isNull();
         assertThat(response.riskLevel()).isEqualTo(RiskLevel.HIGH);
-        verify(actionDispatcher, never()).dispatch(any(), anyLong(), any());
+        verify(actionDispatcher, never()).dispatch(any(), anyLong());
     }
 
     @Test
@@ -115,14 +115,14 @@ class NlpCommandServiceTest {
                 .build();
 
         given(commandLogRepository.findById(1L)).willReturn(Optional.of(commandLog));
-        given(actionDispatcher.dispatch(any(), eq(1L), eq("ghp_token")))
+        given(actionDispatcher.dispatch(any(), eq(1L)))
                 .willReturn("배포가 시작되었습니다");
 
         NlpCommandResponse response = nlpCommandService.confirmCommand(1L,
-                new NlpConfirmRequest(1L, true, "ghp_token"));
+                new NlpConfirmRequest(1L, true));
 
         assertThat(response.result()).isEqualTo("배포가 시작되었습니다");
-        verify(actionDispatcher).dispatch(any(), eq(1L), eq("ghp_token"));
+        verify(actionDispatcher).dispatch(any(), eq(1L));
     }
 
     @Test
@@ -141,11 +141,11 @@ class NlpCommandServiceTest {
         given(commandLogRepository.findById(1L)).willReturn(Optional.of(commandLog));
 
         NlpCommandResponse response = nlpCommandService.confirmCommand(1L,
-                new NlpConfirmRequest(1L, false, null));
+                new NlpConfirmRequest(1L, false));
 
         assertThat(response.message()).contains("취소");
         assertThat(response.result()).isNull();
-        verify(actionDispatcher, never()).dispatch(any(), anyLong(), any());
+        verify(actionDispatcher, never()).dispatch(any(), anyLong());
     }
 
     private GeminiResponse mockGeminiResponse(String text) {
