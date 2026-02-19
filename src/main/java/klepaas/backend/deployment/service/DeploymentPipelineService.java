@@ -135,8 +135,9 @@ public class DeploymentPipelineService {
 
             if (status.completed()) {
                 if (status.success()) {
-                    log.info("Build succeeded: deploymentId={}, imageUri={}", deploymentId, status.imageUri());
-                    return status;
+                    // imageUri는 API 응답에 없으므로 triggerBuild 시점에 계산된 buildResult.imageUri() 사용
+                    log.info("Build succeeded: deploymentId={}, imageUri={}", deploymentId, buildResult.imageUri());
+                    return new BuildStatusResult(true, true, buildResult.imageUri(), status.message());
                 }
                 throw new BusinessException(ErrorCode.BUILD_FAILED, "빌드 실패: " + status.message());
             }

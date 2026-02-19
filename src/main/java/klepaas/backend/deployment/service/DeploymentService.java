@@ -15,6 +15,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 
@@ -50,7 +52,13 @@ public class DeploymentService {
         log.info("Deployment created: id={}, repo={}/{}, branch={}", deployment.getId(),
                 repository.getOwner(), repository.getRepoName(), request.branchName());
 
-        pipelineService.executePipeline(deployment.getId());
+        Long deploymentId = deployment.getId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                pipelineService.executePipeline(deploymentId);
+            }
+        });
 
         return DeploymentResponse.from(deployment);
     }
