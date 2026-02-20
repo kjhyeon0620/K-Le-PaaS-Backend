@@ -42,3 +42,8 @@ out/
 .claude/
 .serena/
 nul
+
+# H2 database files
+*.mv.db
+*.trace.db
+*.db

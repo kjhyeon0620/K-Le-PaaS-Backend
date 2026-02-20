@@ -1,3 +1,90 @@
+# feat/#15-ncp-infra: NCP 인프라 Kaniko 빌드 파이프라인 구현
+
+## Context
+GitHub 저장소 소스를 빌드해 컨테이너 이미지를 만들고 NCP Container Registry(NCR)에 푸시한 뒤 NKS 클러스터에 배포하는 CI/CD 파이프라인 실제 구현.
+초기 설계는 NCP SourceBuild를 사용하는 방안이었으나, NCP SourceBuild가 ObjectStorage를 source.type으로 지원하지 않아 Kaniko K8s Job 방식으로 전환.
+
+## 변경 사항
+
+### 1. NCP SourceBuild → Kaniko K8s Job 전환
+- **삭제**: `NcpSourceBuildClient`, `NcpApiSigner`, 관련 DTO 5개
+- **사유**: NCP SourceBuild의 유효한 source.type이 SourceCommit/GitHub/Bitbucket 등 Git 직접 연결만 가능. Object Storage ZIP 경유 불가.
+- **신규**: `NcpInfraService`가 fabric8 Kubernetes client로 Kaniko Job 직접 생성
+
+### 2. Kaniko S3 context → initContainer + 로컬 컨텍스트 전환
+초기 구현: `--context=s3://bucket/key` (Kaniko가 Object Storage 직접 읽기)
+- 문제 1: Kaniko S3 context는 `.tar.gz` 포맷만 지원, ZIP 업로드 시 `gzip: invalid header`
+- 문제 2: `S3_ENDPOINT` env var가 Kaniko 내부 AWS SDK에서 보장 안 됨 (NCP 커스텀 endpoint 문제)
+
+최종 구현: initContainer 패턴
+```
+initContainer(source-downloader: amazon/aws-cli)
+  → aws s3 cp --endpoint-url {NCP_ENDPOINT} → /tmp/source.zip
+  → python3 unzip → /workspace (emptyDir)
+
+kaniko container
+  → --context=dir:///workspace (S3 endpoint 의존성 완전 제거)
+  → --destination={NCR_ENDPOINT}/{image}:latest
+```
+
+### 3. @Async + @Transactional 타이밍 버그 수정
+- **문제**: `createDeployment()` 내에서 `@Async` 파이프라인 직접 호출 → 트랜잭션 커밋 전에 새 스레드가 DB 조회 → "배포를 찾을 수 없습니다"
+- **수정**: `TransactionSynchronizationManager.registerSynchronization(afterCommit → executePipeline)`
+
+### 4. DeploymentRepository.findById() @EntityGraph 추가
+- 비동기 파이프라인의 각 단계(`REQUIRES_NEW`)마다 `sourceRepository` 필요
+- `findById()`를 `@EntityGraph(attributePaths = {"sourceRepository"})`로 오버라이드
+
+### 5. Kaniko Pod 실패 원인 감지 강화
+- `Job.status.failed > 0`일 때도 `detectPodFailure()` 호출
+- initContainer(source-downloader) `terminated.exitCode` 체크 추가
+
+## 파이프라인 흐름 (최종)
+```
+POST /api/v1/deployments
+  → DeploymentService.createDeployment() [@Transactional]
+    → Deployment INSERT
+    → afterCommit 콜백 등록
+  → 트랜잭션 커밋
+  → [새 스레드] DeploymentPipelineService.executePipeline()
+      1. executeUpload()   [REQUIRES_NEW]
+         - GitHub ZIP 다운로드 (Installation Token)
+         - NCP Object Storage 업로드 (builds/{id}/source.zip)
+         - 상태: UPLOADING_SOURCE → UPLOADED
+      2. executeBuildTrigger()  [REQUIRES_NEW]
+         - Kaniko K8s Job 생성 (klepaas-build-{id})
+         - 상태: BUILDING
+      3. pollBuildStatus() [Exponential Backoff: 10s→20s→60s, max 30분]
+         - Job.status.succeeded/failed 폴링
+         - initContainer/Pod 조기 실패 감지
+      4. executeK8sDeploy()  [REQUIRES_NEW]
+         - fabric8로 Deployment + Service 생성
+         - 상태: DEPLOYING
+      5. markSuccess()  [REQUIRES_NEW]
+         - 상태: SUCCESS
+```
+
+## NCP 인프라 구성
+| 리소스 | 내용 |
+|--------|------|
+| Object Storage 버킷 | `k-le-paas-build-source` |
+| Container Registry | `klepaas.kr.ncr.ntruss.com` |
+| NKS 클러스터 | `klepaas` (노드 1개) |
+| K8s Secret | `ncp-cr` (docker-registry, NCR 인증) |
+| Kaniko Job TTL | 3600초 (완료 후 자동 삭제) |
+
+## 환경변수
+```
+NCP_ACCESS_KEY, NCP_SECRET_KEY
+NCP_STORAGE_BUCKET=k-le-paas-build-source
+NCR_ENDPOINT=klepaas.kr.ncr.ntruss.com
+K8S_NAMESPACE=default
+K8S_IMAGE_PULL_SECRET=ncp-cr
+KANIKO_IMAGE=gcr.io/kaniko-project/executor:latest
+```
+
+---
+
 # Phase 5: AI 자연어 명령 (Java 재구현)
 
 ## Context

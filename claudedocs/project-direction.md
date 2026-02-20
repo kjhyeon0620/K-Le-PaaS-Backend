@@ -1,8 +1,8 @@
 # K-Le-PaaS v2 Java Backend - 프로젝트 방향 정의서
 
 > 작성일: 2026-02-10
-> 최종 수정: 2026-02-10 (아키텍처 결정 사항 확정)
-> 브랜치: feat/#1-entity-setting
+> 최종 수정: 2026-02-20 (feat/#15-ncp-infra 완료, 전 Phase 구현 완료)
+> 브랜치: feat/#15-ncp-infra
 > 기반: 기존 Python(FastAPI) 코드베이스 분석 + 현재 Java 구현 상태
 
 ---
@@ -138,30 +138,46 @@ Python(FastAPI) 모노레포에서 **Java Spring Boot**로 백엔드를 리팩�
 
 ### 5.1 Source Staging (배포 플로우)
 
+> ⚠️ 초기 설계(NCP SourceBuild + Helm)에서 변경됨. 아래가 실제 구현.
+
 ```
 [사용자] → "배포 요청" (UI 버튼)
     ↓
 [Controller] POST /api/v1/deployments
     ↓
-[DeploymentService]
-    1. Deployment 엔티티 생성 (PENDING)
-    2. CloudInfraProviderFactory → CloudVendor별 구현체 선택
+[DeploymentService] @Transactional
+    1. Deployment 엔티티 생성
+    2. afterCommit 콜백으로 파이프라인 지연 등록
+       → 트랜잭션 커밋 완료 후 @Async 스레드 실행 (타이밍 버그 방지)
+    ↓
+[DeploymentPipelineService] @Async
     ↓
 [CloudInfraProvider.uploadSourceToStorage()]
-    3. GitHub API로 ZIP InputStream 획득
+    3. GitHub App Installation Token 획득
+    4. GitHub API로 ZIP 다운로드 (302 redirect 수동 처리)
        GET https://api.github.com/repos/{owner}/{repo}/zipball/{ref}
-    4. S3Client로 Object Storage에 스트리밍 업로드 (Zero-copy)
-       PutObject → builds/{deploymentId}/source.zip
-    5. Deployment 상태 → UPLOADING_SOURCE → BUILDING
+    5. ZIP 최상위 디렉토리 제거 후 재패키징 (Kaniko context 호환)
+    6. NCP Object Storage 업로드: builds/{deploymentId}/source.zip
+    7. Deployment 상태 → UPLOADING_SOURCE → UPLOADED
     ↓
-[CloudInfraProvider.triggerBuildAndDeploy()]
-    6. NCP SourceBuild API 호출 (Object Storage 경로 전달)
-    7. 빌드 상태 폴링 (Exponential Backoff: 10s → 30s → 60s)
-    8. Deployment 상태 → DEPLOYING → SUCCESS/FAILED
+[CloudInfraProvider.triggerBuild()]  ← triggerBuildAndDeploy에서 분리됨
+    8. Kaniko K8s Job 생성 (fabric8 Kubernetes client)
+       - initContainer(amazon/aws-cli): Object Storage ZIP 다운로드 → /workspace unzip
+       - kaniko container: --context=dir:///workspace → NCR push
+       - emptyDir 볼륨으로 컨테이너 간 파일 공유
+       - ncp-cr Secret → /kaniko/.docker/config.json 마운트
+    9. Deployment 상태 → BUILDING
     ↓
-[Helm 배포]
-    9. 플랫폼 기본 Helm Chart로 K8s 배포
-    10. DeploymentConfig 값(replicas, envVars 등) --set으로 주입
+[CloudInfraProvider.getBuildStatus()] 폴링 (Exponential Backoff: 10s→20s→60s, max 30분)
+    10. K8s Job.status.succeeded / failed 체크
+        - initContainer exitCode 감지 (다운로드 실패 등)
+        - FailedMount / ImagePullBackOff 조기 감지
+    11. 빌드 성공 시 imageUri 확정
+    ↓
+[KubernetesManifestGenerator] (fabric8)
+    12. K8s Deployment + Service 생성/업데이트 (apply 방식)
+        - DeploymentConfig.replicas, containerPort, envVars 적용
+    13. Deployment 상태 → DEPLOYING → SUCCESS/FAILED
 ```
 
 ### 5.2 Strategy Pattern (멀티 클라우드)
@@ -177,28 +193,29 @@ CloudInfraProviderFactory
     → SourceRepository.cloudVendor 기반 자동 선택
 ```
 
-### 5.3 K8s 매니페스트 관리 — 플랫폼 기본 Helm Chart
+### 5.3 K8s 매니페스트 관리 — fabric8 직접 생성
 
-**결정**: 플랫폼이 기본 Helm Chart를 제공하고, 사용자 설정값을 주입하는 방식.
+> ⚠️ 초기 설계(Helm Chart)에서 변경됨.
 
-**근거**: K-Le-PaaS의 타겟은 주니어 개발자이므로 Helm Chart 작성을 요구하면 안 된다.
+**결정**: Helm 대신 fabric8 Kubernetes Java client로 Deployment + Service 매니페스트 직접 생성/적용.
+
+**변경 사유**: Helm CLI 의존성 제거, Java 코드 내에서 매니페스트 완전 제어 가능.
 
 ```
+플랫폼이 자동 처리하는 것:
+  - K8s Deployment 생성 (app명: {owner}-{repoName})
+    - image: {NCR_ENDPOINT}/{owner}-{repoName}:latest
+    - replicas: DeploymentConfig.replicas
+    - containerPort: DeploymentConfig.containerPort (기본 8080)
+    - env: DeploymentConfig.envVars → 환경변수 주입
+    - imagePullSecrets: ncp-cr
+    - labels: app.kubernetes.io/name, klepaas.io/repository-id
+  - K8s Service 생성 (ClusterIP, port 80 → containerPort)
+  - 재배포 시 기존 리소스 patch (apply 방식)
+
 사용자가 제공하는 것:
   - 소스코드 (GitHub Repository)
-  - Dockerfile (선택, 없으면 빌드팩 사용)
-
-플랫폼이 자동 처리하는 것:
-  - 기본 Helm Chart 생성 (Deployment, Service, Ingress)
-  - DeploymentConfig 값 주입:
-    - replicas (minReplicas, maxReplicas)
-    - containerPort (기본 8080, 사용자 설정 가능)
-    - envVars (Map<String, String> → ConfigMap으로 주입)
-    - domainUrl (Ingress host)
-  - helm install --set image.tag={buildTag} --set replicaCount={n} --set containerPort={port} ...
-
-고급 사용자 옵션:
-  - 소스코드 내 charts/ 디렉토리가 있으면 커스텀 Chart 사용 가능
+  - Dockerfile (루트 필수)
 ```
 
 ### 5.4 빌드 상태 확인 — 폴링 (Exponential Backoff)
@@ -215,21 +232,31 @@ CloudInfraProviderFactory
   - 성공/실패 시 즉시 폴링 중단
 ```
 
-### 5.5 AI 모듈 — 기존 Python 워커 활용
+### 5.5 AI 모듈 — Java에서 Gemini REST API 직접 구현 (변경됨)
 
-**결정**: Gemini 단일 모델. Java에서 직접 구현하지 않고 기존 Python AI 워커를 활용.
+> ⚠️ 초기 설계(Python 워커 활용)에서 변경됨.
 
-**근거**: AI/NLP 로직은 이미 Python에 성숙한 구현이 있으며, Java로 재작성하는 것은 비효율적.
+**결정**: Python 워커 연동 없이 Java Spring Boot에서 Gemini REST API 직접 호출.
+
+**변경 사유**: Python 워커 별도 운영 복잡도 제거, Java 백엔드 단일 프로세스로 완결.
 
 ```
 아키텍처:
-  [Java Backend] → HTTP/gRPC → [Python AI Worker (Gemini)]
-                                    ↓
-                              자연어 해석 → 의도(Intent) + 파라미터
-                                    ↓
-  [Java Backend] ← 응답 ← [Python AI Worker]
-        ↓
-  의도에 따른 액션 실행 (배포, 스케일링 등)
+  POST /api/v1/nlp/command
+    ↓
+  NlpCommandService (오케스트레이터)
+    → GeminiClient: Gemini REST API 직접 호출 (RestClient)
+    → IntentParser: JSON 응답 → ParsedIntent (마크다운 코드블록 처리 포함)
+    → ActionDispatcher: Intent → 기존 서비스 메서드 매핑 + 리스크 분류
+    → CommandLog DB 저장
+    ↓
+  리스크 분류:
+    LOW  (STATUS, LOGS, LIST 등) → 즉시 실행
+    MEDIUM (SCALE, RESTART)     → 사용자 확인 후 실행
+    HIGH  (DEPLOY)              → 사용자 확인 후 실행
+
+시스템 프롬프트: src/main/resources/prompts/system-prompt.txt (외부 파일)
+세션 관리: Redis 제거 → DB 기반 (ConversationSession 엔티티)
 ```
 
 ### 5.6 인증/인가
@@ -333,41 +360,50 @@ private Map<String, String> envVars;  // 수동 JSON 파싱 불필요, 타입 �
 - [x] `CloudInfraProvider` 패키지 위치 정리
 - [x] Jackson snake_case 설정 추가
 
-### Phase 2: 서비스 레이어 + API 뼈대
-- [ ] `GlobalExceptionHandler` 구현
-- [ ] `ApiResponse` / `ErrorResponse` 공통 응답 형식
-- [ ] `NotificationService` 인터페이스 정의 (Slack 준비)
-- [ ] `DeploymentService` 구현
-- [ ] `UserService` 구현
-- [ ] `CloudInfraProviderFactory` 구현
-- [ ] Request/Response DTO (record) 정의
-- [ ] Controller 엔드포인트 구현
-  - `DeploymentController` (배포 CRUD, 상태 조회)
-  - `RepositoryController` (저장소 등록/조회)
+### Phase 2: 서비스 레이어 + API 뼈대 ✅ 완료
+- [x] `GlobalExceptionHandler` 구현
+- [x] `ApiResponse` / `ErrorResponse` 공통 응답 형식
+- [x] `NotificationService` 인터페이스 정의
+- [x] `DeploymentService` 구현
+- [x] `UserService` 구현
+- [x] `CloudInfraProviderFactory` 구현
+- [x] Request/Response DTO (record) 정의
+- [x] Controller 엔드포인트 구현
+  - `DeploymentController` (배포 CRUD, 상태 조회, 스케일/재시작)
+  - `RepositoryController` (저장소 등록/조회/삭제)
   - `UserController` (사용자 정보)
   - `SystemController` (헬스체크)
 
-### Phase 3: 인증/인가
-- [ ] Spring Security 설정
-- [ ] GitHub OAuth2 로그인 플로우
-- [ ] JWT 토큰 발급/검증 (HS256, 강력한 시크릿)
-- [ ] Role 기반 접근 제어 (USER, ADMIN)
+### Phase 3: 인증/인가 ✅ 완료
+- [x] Spring Security 설정
+- [x] GitHub OAuth2 로그인 플로우 (JWT 발급)
+- [x] JWT 토큰 발급/검증 (HS256)
+- [x] Role 기반 접근 제어 (USER, ADMIN)
+- [x] GitHub App 설치 토큰 연동 (GitHubInstallationTokenService)
+  - GitHub App JWT 발급 → Installation Token 획득 → 캐싱
 
-### Phase 4: NCP 인프라 구현
-- [ ] `NcpInfraService.uploadSourceToStorage()` 실제 구현
-  - GitHub ZIP 스트리밍 → S3 Object Storage (Zero-copy)
-- [ ] `NcpInfraService.triggerBuildAndDeploy()` 실제 구현
-  - NCP SourceBuild API 연동
-  - HMAC-SHA256 서명 생성
-- [ ] 빌드 상태 폴링 (Exponential Backoff: 10s → 30s → 60s, 최대 30분)
-- [ ] 플랫폼 기본 Helm Chart로 K8s 배포
-- [ ] NCP SourceDeploy 연동
+### Phase 4: NCP 인프라 구현 ✅ 완료 (설계 변경 포함)
+- [x] `NcpInfraService.uploadSourceToStorage()` 실제 구현
+  - GitHub ZIP 다운로드 (302 redirect 수동 처리) → 최상위 디렉토리 제거 후 재패키징 → NCP Object Storage 업로드
+- [x] `NcpInfraService.triggerBuild()` 실제 구현
+  - ~~NCP SourceBuild API~~ → **Kaniko K8s Job** (NCP SourceBuild가 ObjectStorage source 미지원)
+  - initContainer(amazon/aws-cli)가 다운로드+unzip → Kaniko가 로컬 컨텍스트로 빌드
+- [x] 빌드 상태 폴링 (Exponential Backoff: 10s→20s→60s, 최대 30분)
+  - K8s Job 상태 + initContainer/Pod 조기 실패 감지
+- [x] K8s 배포 (fabric8 Kubernetes client로 Deployment + Service 직접 생성)
+  - ~~Helm Chart~~ → fabric8 직접 apply
+- [x] `DeploymentRepository.findById()` @EntityGraph 오버라이드 (LazyInitializationException 방지)
+- [x] @Async + @Transactional 타이밍 버그 수정 (afterCommit 콜백)
 
-### Phase 5: AI 자연어 명령 (Python 워커 연동)
-- [ ] Python AI Worker 통신 인터페이스 (HTTP/gRPC)
-- [ ] 자연어 → 의도 해석 결과 수신
-- [ ] CommandLog 기반 이력 관리
-- [ ] 의도별 액션 디스패처 (배포, 스케일링, 조회 등)
+### Phase 5: AI 자연어 명령 ✅ 완료 (설계 변경 포함)
+- [x] ~~Python AI Worker 연동~~ → **Java에서 Gemini REST API 직접 구현**
+- [x] GeminiClient (RestClient 패턴)
+- [x] IntentParser (마크다운 코드블록 처리, JSON 파싱)
+- [x] ActionDispatcher (Intent → 서비스 메서드 매핑 + 리스크 분류)
+- [x] NlpCommandService (LOW 즉시실행, MEDIUM/HIGH 확인 대기)
+- [x] CommandLog / ConversationSession 엔티티 및 Repository
+- [x] NlpController (`/command`, `/confirm`, `/history`)
+- [x] 시스템 프롬프트 외부 파일 분리 (`prompts/system-prompt.txt`)
 
 ### Phase 6: 고도화
 - [ ] Slack 알림 연동 (SlackNotificationService)
@@ -437,17 +473,18 @@ GET  /api/v1/system/version                # 버전 정보
 
 ## 8. 결정 사항 요약
 
-모든 미결정 사항이 확정되었다.
-
-| # | 항목 | 결정 | 비고 |
-|---|------|------|------|
-| 1 | AI 서비스 | **Gemini 단일**, 기존 Python 워커 활용 | Java에서 AI 직접 구현 안 함 |
-| 2 | K8s 매니페스트 | **플랫폼 기본 Helm Chart** + 설정값 주입 | 사용자에게 Helm 지식 요구 안 함 |
-| 3 | 빌드 상태 확인 | **폴링 (Exponential Backoff)** | 10s → 30s → 60s, 최대 30분 |
-| 4 | Slack 연동 | **Phase 6** (고도화) | Phase 2에서 인터페이스만 정의 |
-| 5 | 프론트엔드 | **기존 Next.js 15 + React 19 재사용** | snake_case JSON 호환 필수 |
-| 6 | Google OAuth | **후순위** (GitHub OAuth만 우선) | Phase 6에서 선택적 추가 |
-| 7 | MCP 프로토콜 | **REST API만** | MCP 미적용 |
+| # | 항목 | 초기 결정 | 최종 결정 | 변경 사유 |
+|---|------|----------|----------|---------|
+| 1 | AI 서비스 | Gemini 단일, Python 워커 활용 | **Java에서 Gemini REST API 직접 구현** | Python 워커 별도 운영 복잡도 제거 |
+| 2 | K8s 매니페스트 | 플랫폼 기본 Helm Chart | **fabric8 Kubernetes client 직접 apply** | Helm CLI 의존성 제거 |
+| 3 | 빌드 엔진 | NCP SourceBuild | **Kaniko K8s Job** | NCP SourceBuild가 ObjectStorage source 미지원 |
+| 4 | Kaniko context | `--context=s3://` (직접 읽기) | **initContainer + `dir:///workspace`** | NCP 커스텀 S3 endpoint 호환성 불안정 |
+| 5 | 빌드 상태 확인 | 폴링 (Exponential Backoff) | **동일** (10s→20s→60s, 최대 30분) | - |
+| 6 | Slack 연동 | Phase 6 | **Phase 6 유지** | - |
+| 7 | 프론트엔드 | 기존 Next.js 15 + React 19 재사용 | **동일** | snake_case JSON 호환 필수 |
+| 8 | Google OAuth | 후순위 | **후순위 유지** | - |
+| 9 | GitHub 인증 | OAuth2 토큰으로 저장소 접근 | **GitHub App Installation Token** | 저장소 접근 권한 안정성 향상 |
+| 10 | MCP 프로토콜 | REST API만 | **동일** | - |
 
 ---
 
