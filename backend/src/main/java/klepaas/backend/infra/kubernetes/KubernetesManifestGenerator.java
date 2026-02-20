@@ -1,0 +1,173 @@
+package klepaas.backend.infra.kubernetes;
+
+import io.fabric8.kubernetes.api.model.*;
+import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
+import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
+import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
+
+import io.fabric8.kubernetes.client.KubernetesClient;
+import klepaas.backend.deployment.entity.DeploymentConfig;
+import klepaas.backend.global.exception.BusinessException;
+import klepaas.backend.global.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class KubernetesManifestGenerator {
+
+    private final KubernetesClient kubernetesClient;
+
+    @Value("${kubernetes.namespace:default}")
+    private String namespace;
+
+    @Value("${kubernetes.image-pull-secret:ncp-cr}")
+    private String imagePullSecretName;
+
+    /**
+     * K8s Deployment + Service + Ingress 생성/업데이트
+     */
+    public void deploy(String appName, String imageUri, DeploymentConfig config, Long repoId) {
+        Map<String, String> labels = Map.of(
+                "app.kubernetes.io/name", appName,
+                "app.kubernetes.io/managed-by", "klepaas",
+                "klepaas.io/repository-id", String.valueOf(repoId)
+        );
+
+        try {
+            createOrUpdateDeployment(appName, imageUri, config, labels);
+            createOrUpdateService(appName, config.getContainerPort(), labels);
+
+            if (config.getDomainUrl() != null && !config.getDomainUrl().isBlank()) {
+                createOrUpdateIngress(appName, config.getDomainUrl(), config.getContainerPort(), labels);
+            }
+
+            log.info("K8s resources deployed: app={}, namespace={}", appName, namespace);
+        } catch (Exception e) {
+            log.error("K8s deployment failed: app={}, error={}", appName, e.getMessage(), e);
+            throw new BusinessException(ErrorCode.DEPLOY_FAILED, "K8s 배포 실패: " + e.getMessage());
+        }
+    }
+
+    /**
+     * K8s 리소스 스케일링
+     */
+    public void scale(String appName, int replicas) {
+        kubernetesClient.apps().deployments()
+                .inNamespace(namespace)
+                .withName(appName)
+                .scale(replicas);
+        log.info("Scaled: app={}, replicas={}", appName, replicas);
+    }
+
+    private void createOrUpdateDeployment(String appName, String imageUri,
+                                           DeploymentConfig config, Map<String, String> labels) {
+        List<EnvVar> envVars = config.getEnvVars().entrySet().stream()
+                .map(e -> new EnvVarBuilder().withName(e.getKey()).withValue(e.getValue()).build())
+                .collect(Collectors.toList());
+
+        Deployment deployment = new DeploymentBuilder()
+                .withNewMetadata()
+                    .withName(appName)
+                    .withNamespace(namespace)
+                    .withLabels(labels)
+                .endMetadata()
+                .withNewSpec()
+                    .withReplicas(config.getMinReplicas())
+                    .withNewSelector()
+                        .withMatchLabels(Map.of("app.kubernetes.io/name", appName))
+                    .endSelector()
+                    .withNewTemplate()
+                        .withNewMetadata()
+                            .withLabels(labels)
+                        .endMetadata()
+                        .withNewSpec()
+                            .withImagePullSecrets(new LocalObjectReferenceBuilder()
+                                    .withName(imagePullSecretName)
+                                    .build())
+                            .withContainers(new ContainerBuilder()
+                                    .withName(appName)
+                                    .withImage(imageUri)
+                                    .withPorts(new ContainerPortBuilder()
+                                            .withContainerPort(config.getContainerPort())
+                                            .build())
+                                    .withEnv(envVars)
+                                    .build())
+                        .endSpec()
+                    .endTemplate()
+                .endSpec()
+                .build();
+
+        kubernetesClient.apps().deployments()
+                .inNamespace(namespace)
+                .resource(deployment)
+                .serverSideApply();
+    }
+
+    private void createOrUpdateService(String appName, int containerPort, Map<String, String> labels) {
+        Service service = new ServiceBuilder()
+                .withNewMetadata()
+                    .withName(appName)
+                    .withNamespace(namespace)
+                    .withLabels(labels)
+                .endMetadata()
+                .withNewSpec()
+                    .withSelector(Map.of("app.kubernetes.io/name", appName))
+                    .withPorts(new ServicePortBuilder()
+                            .withPort(80)
+                            .withNewTargetPort(containerPort)
+                            .withProtocol("TCP")
+                            .build())
+                    .withType("ClusterIP")
+                .endSpec()
+                .build();
+
+        kubernetesClient.services()
+                .inNamespace(namespace)
+                .resource(service)
+                .serverSideApply();
+    }
+
+    private void createOrUpdateIngress(String appName, String domainUrl, int containerPort,
+                                        Map<String, String> labels) {
+        Ingress ingress = new IngressBuilder()
+                .withNewMetadata()
+                    .withName(appName)
+                    .withNamespace(namespace)
+                    .withLabels(labels)
+                .endMetadata()
+                .withNewSpec()
+                    .addNewRule()
+                        .withHost(domainUrl)
+                        .withNewHttp()
+                            .addNewPath()
+                                .withPath("/")
+                                .withPathType("Prefix")
+                                .withNewBackend()
+                                    .withNewService()
+                                        .withName(appName)
+                                        .withNewPort()
+                                            .withNumber(80)
+                                        .endPort()
+                                    .endService()
+                                .endBackend()
+                            .endPath()
+                        .endHttp()
+                    .endRule()
+                .endSpec()
+                .build();
+
+        kubernetesClient.network().v1().ingresses()
+                .inNamespace(namespace)
+                .resource(ingress)
+                .serverSideApply();
+    }
+}

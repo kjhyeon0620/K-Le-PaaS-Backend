@@ -1,49 +1,26 @@
-HELP.md
-.gradle
-build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
-
-### IntelliJ IDEA ###
-.idea
+# ─── IDE ──────────────────────────────────────────────────
+.idea/
+.vscode/
 *.iws
 *.iml
 *.ipr
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-
-### VS Code ###
-.vscode/
-
-.env
-
-### Claude Code / Serena ###
-.claude/
-.serena/
+# ─── OS ───────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 nul
 
-# H2 database files
-*.mv.db
-*.trace.db
-*.db
+# ─── Environment variables ────────────────────────────────
+.env
+
+# ─── Tool-specific ────────────────────────────────────────
+.claude/
+.serena/
+
+# ─── Logs ─────────────────────────────────────────────────
+*.log

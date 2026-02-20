@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: backend
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+  datasource:
+    url: jdbc:h2:file:./data/klepaas
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    defer-datasource-initialization: true
+  h2:
+    console:
+      enabled: true
+
+app:
+  version: 0.0.1-SNAPSHOT
+
+jwt:
+  secret: ${JWT_SECRET:default-dev-secret-key-must-be-at-least-32-characters-long}
+  access-token-expiry: 3600000    # 1시간
+  refresh-token-expiry: 604800000 # 7일
+
+github:
+  client-id: ${GITHUB_CLIENT_ID}
+  client-secret: ${GITHUB_CLIENT_SECRET}
+  redirect-uri: ${GITHUB_REDIRECT_URI:http://localhost:3000/console/auth/callback}
+  app:
+    app-id: ${GITHUB_APP_ID}
+    private-key: ${GITHUB_APP_PRIVATE_KEY}
+    app-slug: ${GITHUB_APP_SLUG}
+
+cloud:
+  ncp:
+    credentials:
+      access-key: ${NCP_ACCESS_KEY}
+      secret-key: ${NCP_SECRET_KEY}
+    region: ap-northeast-2
+    storage:
+      endpoint: https://kr.object.ncloudstorage.com
+      bucket: ${NCP_STORAGE_BUCKET}
+    container-registry:
+      endpoint: ${NCR_ENDPOINT}
+
+kubernetes:
+  namespace: ${K8S_NAMESPACE:default}
+  image-pull-secret: ${K8S_IMAGE_PULL_SECRET:ncp-cr}
+
+kaniko:
+  image: ${KANIKO_IMAGE:gcr.io/kaniko-project/executor:latest}
+
+deployment:
+  pipeline:
+    poll-initial-interval: 10000
+    poll-max-interval: 60000
+    build-timeout: 1800000
+
+gemini:
+  api:
+    base-url: https://generativelanguage.googleapis.com
+    key: ${GEMINI_API_KEY}
+    model: ${GEMINI_MODEL:gemini-2.5-flash}
