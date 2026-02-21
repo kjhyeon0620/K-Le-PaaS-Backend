@@ -18,6 +18,14 @@ nul
 # ─── Environment variables ────────────────────────────────
 .env
 
+# ─── Build / Gradle ───────────────────────────────────────
+.gradle/
+build/
+out/
+/gradle/
+/gradlew
+/gradlew.bat
+
 # ─── Tool-specific ────────────────────────────────────────
 .claude/
 .serena/
