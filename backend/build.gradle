@@ -46,6 +46,9 @@ dependencies {
 	// XML 처리 (S3 응답 파싱 시)
 	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml'
 
+	// WebSocket
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
 	// auth
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
