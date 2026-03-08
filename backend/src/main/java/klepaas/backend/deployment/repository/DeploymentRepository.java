@@ -5,6 +5,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
@@ -21,4 +23,7 @@ public interface DeploymentRepository extends JpaRepository<Deployment, Long> {
 
     @EntityGraph(attributePaths = {"sourceRepository"})
     Page<Deployment> findBySourceRepositoryUserId(Long userId, Pageable pageable);
+
+    @Query("SELECT s.user.id FROM Deployment d JOIN d.sourceRepository s WHERE d.id = :id")
+    Optional<Long> findUserIdByDeploymentId(@Param("id") Long id);
 }
