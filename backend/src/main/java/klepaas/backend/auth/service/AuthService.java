@@ -82,7 +82,6 @@ public class AuthService {
     public void logout(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException(ErrorCode.USER_NOT_FOUND));
-
         user.revokeRefreshToken();
         userRepository.save(user);
     }

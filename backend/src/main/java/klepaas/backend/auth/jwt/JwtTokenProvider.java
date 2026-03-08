@@ -35,21 +35,22 @@ public class JwtTokenProvider {
     }
 
     public TokenResponse createTokens(Long userId, String email, Role role) {
-        String accessToken = createToken(userId, email, role, accessTokenExpiry);
-        String refreshToken = createToken(userId, email, role, refreshTokenExpiry);
+        String accessToken = createToken(userId, email, role, accessTokenExpiry, "access");
+        String refreshToken = createToken(userId, email, role, refreshTokenExpiry, "refresh");
         return new TokenResponse(accessToken, refreshToken);
     }
 
     public String createAccessToken(Long userId, String email, Role role) {
-        return createToken(userId, email, role, accessTokenExpiry);
+        return createToken(userId, email, role, accessTokenExpiry, "access");
     }
 
-    private String createToken(Long userId, String email, Role role, long expiry) {
+    private String createToken(Long userId, String email, Role role, long expiry, String tokenType) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("email", email)
                 .claim("role", role.name())
+                .claim("type", tokenType)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expiry))
                 .signWith(secretKey)
@@ -79,6 +80,10 @@ public class JwtTokenProvider {
     }
 
     public void validateRefreshToken(String token, User user) {
+        String tokenType = getClaims(token).get("type", String.class);
+        if (!"refresh".equals(tokenType)) {
+            throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "리프레시 토큰이 아닙니다");
+        }
         if (user.getRefreshToken() == null || !token.equals(user.getRefreshToken())) {
             log.warn("Refresh token mismatch for userId={}", user.getId());
             throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "리프레시 토큰이 일치하지 않습니다");
