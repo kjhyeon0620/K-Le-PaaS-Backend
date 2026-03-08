@@ -111,6 +111,7 @@ public class ActionDispatcher {
                 formatted, metadata);
     }
 
+<<<<<<< Updated upstream
     private Object executeScale(Map<String, Object> args) {
         Long deploymentId = toLong(args.get("deployment_id"));
         int replicas = getInt(args, "replicas", 1);
@@ -147,6 +148,15 @@ public class ActionDispatcher {
                 "스케일링 완료",
                 formatted, metadata);
     }
+=======
+    private String executeScale(Map<String, Object> args) {
+        Long deploymentId = toLong(args.get("deployment_id"));
+        int replicas = ((Number) args.getOrDefault("replicas", 1)).intValue();
+
+        deploymentService.scaleDeployment(deploymentId, new ScaleRequest(replicas), "NLP");
+        return "스케일링 완료: 배포 ID " + deploymentId + " → " + replicas + "개 레플리카";
+    }
+>>>>>>> Stashed changes
 
     private Object executeRestart(Map<String, Object> args) {
         Long deploymentId = toLong(args.get("deployment_id"));
