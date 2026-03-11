@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import klepaas.backend.auth.config.CustomUserDetails;
+import klepaas.backend.auth.token.service.CliAccessTokenService;
 import klepaas.backend.user.entity.Role;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final CliAccessTokenService cliAccessTokenService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -29,16 +31,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                      FilterChain filterChain) throws ServletException, IOException {
         String token = resolveToken(request);
 
-        if (token != null && jwtTokenProvider.validateToken(token)) {
-            Long userId = jwtTokenProvider.getUserId(token);
-            String email = jwtTokenProvider.getEmail(token);
-            Role role = jwtTokenProvider.getRole(token);
-
-            CustomUserDetails userDetails = new CustomUserDetails(userId, email, role);
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+        if (token != null) {
+            CustomUserDetails userDetails = resolveUser(token);
+            if (userDetails != null) {
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
         }
 
         filterChain.doFilter(request, response);
@@ -50,5 +49,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return bearer.substring(7);
         }
         return null;
+    }
+
+    private CustomUserDetails resolveUser(String token) {
+        if (jwtTokenProvider.validateToken(token)) {
+            Long userId = jwtTokenProvider.getUserId(token);
+            String email = jwtTokenProvider.getEmail(token);
+            Role role = jwtTokenProvider.getRole(token);
+            return new CustomUserDetails(userId, email, role);
+        }
+
+        try {
+            return cliAccessTokenService.authenticate(token);
+        } catch (Exception e) {
+            log.debug("Token authentication failed: {}", e.getMessage());
+            return null;
+        }
     }
 }

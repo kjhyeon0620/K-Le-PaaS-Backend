@@ -110,6 +110,26 @@ class ApiClient {
     return this.request('/api/v1/auth/me')
   }
 
+  async getCliAccessTokens() {
+    return this.request<CliAccessTokenResponse[]>('/api/v1/cli-tokens')
+  }
+
+  async createCliAccessToken(payload: { name: string; expiresInDays: number }) {
+    return this.request<CreateCliAccessTokenResponse>('/api/v1/cli-tokens', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: payload.name,
+        expires_in_days: payload.expiresInDays,
+      }),
+    })
+  }
+
+  async revokeCliAccessToken(tokenId: number) {
+    return this.request('/api/v1/cli-tokens/' + tokenId, {
+      method: 'DELETE',
+    })
+  }
+
   // OAuth2 URL generation — backend returns { url: "https://github.com/..." }
   async getOAuth2Url(provider: 'google' | 'github') {
     return this.request(`/api/v1/auth/oauth2/url/${provider}`)
@@ -717,6 +737,21 @@ export interface ScalingHistoryResponse {
     status: string
   }>
   total_count: number
+}
+
+export interface CliAccessTokenResponse {
+  id: number
+  name: string
+  token_prefix: string
+  expires_at: string
+  last_used_at: string | null
+  revoked_at: string | null
+  created_at: string
+}
+
+export interface CreateCliAccessTokenResponse {
+  token: string
+  metadata: CliAccessTokenResponse
 }
 
 export const apiClient = new ApiClient()

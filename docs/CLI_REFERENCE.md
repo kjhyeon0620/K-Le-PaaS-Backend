@@ -45,6 +45,7 @@ klepaas auth logout
 - `--web`는 브라우저 기반 OAuth 흐름을 시도한다.
 - `--code`는 브라우저에서 받은 OAuth code를 직접 교환할 때 사용한다.
 - 토큰은 XDG config 경로 또는 `~/.config/klepaas/config.json`에 저장된다.
+- 권장 방식은 웹 콘솔 `Settings > CLI 토큰`에서 전용 토큰을 발급한 뒤 `--token`으로 로그인하는 것이다.
 
 ---
 
