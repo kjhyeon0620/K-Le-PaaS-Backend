@@ -11,18 +11,15 @@ function CallbackInner() {
     const handleOAuthCallback = async () => {
       const code = searchParams.get('code')
       const state = searchParams.get('state')
+      const stateParams = new URLSearchParams(state || '')
+      const storedNextPath = safeSessionGet('oauth_login_next')
+      const nextPath = stateParams.get('next') || storedNextPath
 
-      // state에서 provider 정보 추출 (e.g. "provider=github")
-      const provider = state?.includes('provider=')
-        ? state.split('provider=')[1]
-        : 'github' // Java backend only supports github
+      const storedProvider = safeSessionGet('oauth_login_provider')
+      const provider = ((stateParams.get('provider') || storedProvider || 'github')) as 'github'
 
       if (!code) {
-        window.opener?.postMessage({
-          type: 'OAUTH2_ERROR',
-          error: 'Missing authorization code in OAuth2 callback',
-        }, window.location.origin)
-        window.close()
+        handleError('Missing authorization code in OAuth2 callback', nextPath)
         return
       }
 
@@ -31,7 +28,6 @@ function CallbackInner() {
         const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
         const redirectUri = `${origin}${basePath}/auth/callback`
 
-        // Exchange code for tokens — response is auto-unwrapped: { access_token, refresh_token }
         const tokenData = await apiClient.loginWithOAuth2(
           provider as 'github',
           code,
@@ -55,19 +51,27 @@ function CallbackInner() {
           provider: 'github' as const,
         }
 
-        window.opener?.postMessage({
-          type: 'OAUTH2_SUCCESS',
-          user: userInfo,
-          accessToken: tokenData.access_token,
-        }, window.location.origin)
-        window.close()
+        if (window.opener && !nextPath) {
+          window.opener.postMessage({
+            type: 'OAUTH2_SUCCESS',
+            user: userInfo,
+            accessToken: tokenData.access_token,
+          }, window.location.origin)
+          window.close()
+          return
+        }
+
+        if (nextPath) {
+          safeSessionClear()
+          window.location.replace(nextPath)
+          return
+        }
+
+        safeSessionClear()
+        window.location.replace('/')
       } catch (error) {
         console.error('OAuth2 callback error:', error)
-        window.opener?.postMessage({
-          type: 'OAUTH2_ERROR',
-          error: (error as Error).message || 'OAuth2 callback failed',
-        }, window.location.origin)
-        window.close()
+        handleError((error as Error).message || 'OAuth2 callback failed', nextPath)
       }
     }
 
@@ -79,6 +83,38 @@ function CallbackInner() {
       <p>로그인 처리 중...</p>
     </div>
   )
+}
+
+function handleError(message: string, nextPath: string | null) {
+  safeSessionClear()
+  if (window.opener && !nextPath) {
+    window.opener.postMessage({
+      type: 'OAUTH2_ERROR',
+      error: message,
+    }, window.location.origin)
+    window.close()
+    return
+  }
+
+  const target = nextPath
+    ? `${nextPath}${nextPath.includes('?') ? '&' : '?'}authError=${encodeURIComponent(message)}`
+    : `/?authError=${encodeURIComponent(message)}`
+  window.location.replace(target)
+}
+
+function safeSessionGet(key: string) {
+  try {
+    return window.sessionStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function safeSessionClear() {
+  try {
+    window.sessionStorage.removeItem('oauth_login_next')
+    window.sessionStorage.removeItem('oauth_login_provider')
+  } catch {}
 }
 
 export default function AuthCallbackPage() {

@@ -1,6 +1,6 @@
 # 프로젝트 진행 현황
 
-> 마지막 업데이트: 2026-03-05
+> 마지막 업데이트: 2026-03-12
 > 현재 브랜치: main (Phase 1~5 완료)
 
 ---
@@ -16,6 +16,7 @@ WebSocket       ████░░░░░░  40%
 모니터링         ████░░░░░░  40%
 알림(Slack)     ██░░░░░░░░  20%
 GitOps/Webhook  ░░░░░░░░░░   0%
+CLI 제어면      ████████░░  80%
 ```
 
 ---
@@ -70,6 +71,15 @@ GitOps/Webhook  ░░░░░░░░░░   0%
 - [x] `use-global-websocket.ts` — 실시간 배포 상태 스트리밍 훅 (백엔드 엔드포인트 미구현)
 - [x] `nlp-response-renderers/` — Intent별 응답 렌더링 컴포넌트
 
+### CLI / 인증 확장
+- [x] `frontend/cli/` 기반 Node CLI 런타임 추가
+- [x] `auth`, `ask`, `confirm`, `history`, `deployments`, `cost` 명령 구현
+- [x] `--json`, `--quiet`, 종료 코드 표준화
+- [x] 비용 추정 API (`/api/v1/cost/*`) 추가
+- [x] 웹 설정 페이지에서 `CLI Tokens` 발급/조회/폐기 UI 추가
+- [x] CLI 토큰 해시 저장 + JWT/CLI 토큰 겸용 인증 필터 구현
+- [x] 웹 승인형 `auth login --web` 플로우 추가 (`/api/v1/cli-auth/sessions/*`, `/console/cli/authorize`)
+
 ---
 
 ## 미구현 사항
@@ -107,10 +117,11 @@ GitOps/Webhook  ░░░░░░░░░░   0%
 
 ## 신규 기획 메모
 
-### CLI 제어면 도입 검토
+### CLI 제어면
 
-- 상태: 방향 확정, 구현 전
+- 상태: 1차 MVP 구현 완료
 - 문서: [`docs/CLI_STRATEGY.md`](CLI_STRATEGY.md)
 - 정의: 웹 콘솔을 대체하지 않고, 운영/자동화/비용 가드레일을 담당하는 보조 인터페이스
-- 우선 범위: `auth`, `ask`, `confirm`, `history`, `deployments`, `cost plan/check`
+- 구현 범위: `auth`, `ask`, `confirm`, `history`, `deployments`, `cost`
+- 인증 방식: 사람용 `auth login --web`, 머신용 `auth login --token`
 - 비용 방향: billing 조회형보다 배포 전 추정형 FinOps 우선

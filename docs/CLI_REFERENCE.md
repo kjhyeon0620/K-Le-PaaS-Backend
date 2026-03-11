@@ -37,15 +37,24 @@ klepaas --help
 ```bash
 klepaas auth login --token <access-token> [--refresh-token <refresh-token>]
 klepaas auth login --web
-klepaas auth login --code <oauth-code> [--redirect-uri <uri>]
 klepaas auth whoami
 klepaas auth logout
 ```
 
-- `--web`는 브라우저 기반 OAuth 흐름을 시도한다.
-- `--code`는 브라우저에서 받은 OAuth code를 직접 교환할 때 사용한다.
+- `--web`는 브라우저에서 KLEPaaS 웹 승인 페이지를 열고, 승인 후 CLI 전용 토큰을 자동 저장한다.
+- 로그인되지 않은 브라우저는 GitHub 로그인 후 같은 승인 페이지로 복귀한다.
 - 토큰은 XDG config 경로 또는 `~/.config/klepaas/config.json`에 저장된다.
-- 권장 방식은 웹 콘솔 `Settings > CLI 토큰`에서 전용 토큰을 발급한 뒤 `--token`으로 로그인하는 것이다.
+- 사람 사용자는 `--web`, Jenkins/AI/스크립트는 `Settings > CLI Tokens`에서 발급한 전용 토큰으로 `--token` 로그인을 사용하는 것을 권장한다.
+
+예시:
+
+```bash
+# 사람 사용자
+npm run cli -- auth login --web
+
+# 머신 사용자
+npm run cli -- auth login --token "kpa_cli_..."
+```
 
 ---
 
@@ -76,6 +85,7 @@ klepaas cost check --file docs/examples/cli-cost-spec.json --max-monthly 120000
 ```
 
 입력 파일은 JSON만 지원한다.
+이 비용 모델은 실제 billing 조회가 아니라 배포 spec 기반 추정 모델이다.
 
 예시:
 
@@ -115,3 +125,15 @@ klepaas cost check --file docs/examples/cli-cost-spec.json --max-monthly 120000
 - `3`: API 요청 실패
 - `4`: 비용 한도 초과
 - `5`: OAuth/대기 명령 타임아웃
+
+---
+
+## 인증 저장 위치
+
+- 기본 저장 파일: `~/.config/klepaas/config.json`
+- 저장 항목:
+  - 활성 프로필 이름
+  - 프로필별 `baseUrl`
+  - `accessToken`
+  - `refreshToken`
+  - 최근 사용자 정보

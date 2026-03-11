@@ -12,6 +12,7 @@ K-Le-PaaS 프론트엔드는 **AI-First Kubernetes PaaS**의 웹 콘솔입니다
 - **배포 모니터링**: 실시간 WebSocket 기반 배포 진행률·로그 스트리밍
 - **GitHub 연동**: GitHub OAuth, 저장소 연결, 워크플로우 트리거/상태 조회
 - **Slack/알림 설정**: 배포 성공/실패 알림 채널 설정
+- **CLI 토큰 설정**: 웹에서 CLI 전용 토큰 발급/폐기 및 승인형 로그인 보조
 
 ---
 
@@ -121,6 +122,8 @@ frontend/
 │   ├── page.tsx             # 메인 콘솔 페이지
 │   ├── auth/
 │   │   └── callback/page.tsx        # OAuth2 등 인증 콜백
+│   ├── cli/
+│   │   └── authorize/page.tsx       # CLI 웹 승인 페이지
 │   └── oauth2-callback/page.tsx     # 백엔드 OAuth 콜백 처리
 │
 ├── components/
@@ -135,6 +138,7 @@ frontend/
 │   ├── settings/                    # 설정 페이지 섹션
 │   │   ├── SettingsPage.tsx
 │   │   ├── AgentsBridgesSection.tsx
+│   │   ├── CliTokensSection.tsx
 │   │   ├── EnvironmentsClustersSection.tsx
 │   │   ├── MCPConnectorsSection.tsx
 │   │   └── SlackNotificationsSection.tsx
@@ -192,8 +196,8 @@ npm install
 
 ```bash
 # 예시
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_WS_URL=ws://localhost:8000
+NEXT_PUBLIC_API_URL=http://localhost:8080
+NEXT_PUBLIC_WS_URL=ws://localhost:8080
 NEXT_PUBLIC_APP_BASE_PATH=/console
 ```
 
@@ -221,16 +225,17 @@ npm start
 
 ## 🔌 백엔드 연동
 
-프론트엔드는 `backend-hybrid` FastAPI 백엔드와 통신합니다.
+프론트엔드는 Spring Boot 백엔드와 통신합니다.
 
 - **REST API**
-  - 엔드포인트 정의: `backend-hybrid/app/api/v1/*`
+  - 엔드포인트 정의: `backend/src/main/java/klepaas/backend/**/controller/*`
   - 클라이언트: `frontend/lib/api.ts`
 - **WebSocket**
   - 배포 모니터링: `/ws/deployments` (예: `use-global-websocket.ts`에서 사용)
 - **OAuth2 / GitHub / Slack**
   - 인증 콜백: `app/auth/callback/page.tsx`, `app/oauth2-callback/page.tsx`
-  - 상세 플로우: `backend-hybrid/docs/architecture/BACKEND_ARCHITECTURE.md` 참고
+  - CLI 승인 페이지: `app/cli/authorize/page.tsx`
+  - CLI 토큰 관리: `Settings > CLI Tokens`
 
 ---
 
@@ -242,6 +247,7 @@ npm start
 - **배포 모니터링**: `components/deployment-status-monitoring.tsx`, `realtime-deployment-monitor.tsx`
 - **GitHub 통합 패널**: `components/github-integration-panel.tsx`
 - **설정 페이지**: `components/settings/SettingsPage.tsx` 및 하위 섹션
+- **CLI 토큰 섹션**: `components/settings/CliTokensSection.tsx`
 - **공용 UI 라이브러리**: `components/ui/*`
 
 ---
@@ -260,7 +266,6 @@ npm start
 
 - `docs/FRONTEND_ARCHITECTURE.md`
 - `docs/ENVIRONMENT_SETUP.md`
-- `backend-hybrid/docs/architecture/BACKEND_ARCHITECTURE.md`
 
 ---
 

@@ -97,6 +97,28 @@ export class ApiClient {
     return this.request("/api/v1/cost/check", { method: "POST", body: payload });
   }
 
+  async createCliAuthSession(payload) {
+    return this.request("/api/v1/cli-auth/sessions", {
+      method: "POST",
+      auth: false,
+      body: payload,
+    });
+  }
+
+  async getCliAuthSession(sessionId) {
+    return this.request(`/api/v1/cli-auth/sessions/${sessionId}`, {
+      auth: false,
+    });
+  }
+
+  async exchangeCliAuthSession(sessionId, userCode) {
+    return this.request(`/api/v1/cli-auth/sessions/${sessionId}/exchange`, {
+      method: "POST",
+      auth: false,
+      body: { userCode },
+    });
+  }
+
   async request(endpoint, { method = "GET", body, auth = true, retry = true } = {}) {
     const config = await loadConfig();
     const { name, profile } = getProfile(config, this.profileName);

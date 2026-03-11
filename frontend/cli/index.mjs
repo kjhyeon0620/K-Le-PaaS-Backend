@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 
 import fs from "node:fs/promises";
-import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { spawn } from "node:child_process";
-import { URL } from "node:url";
 
 import { ApiClient, CliError } from "./api.mjs";
 import { DEFAULT_BASE_URL, getConfigPath, getProfile, loadConfig, saveConfig, upsertProfile } from "./config.mjs";
@@ -112,48 +110,53 @@ async function handleAuthLogin(args, globalOptions, client) {
 }
 
 async function loginWithBrowser(globalOptions, client) {
-  const server = http.createServer();
-  const codePromise = new Promise((resolve, reject) => {
-    server.on("request", (req, res) => {
-      try {
-        const currentUrl = new URL(req.url, "http://127.0.0.1");
-        const code = currentUrl.searchParams.get("code");
-        const error = currentUrl.searchParams.get("error");
-
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        if (code) {
-          res.end("<html><body><h2>KLEPaaS CLI 로그인 완료</h2><p>이 창을 닫아도 됩니다.</p></body></html>");
-          resolve(code);
-        } else {
-          res.end("<html><body><h2>KLEPaaS CLI 로그인 실패</h2><p>터미널로 돌아가 오류를 확인하세요.</p></body></html>");
-          reject(new CliError(error || "OAuth 콜백에서 code를 받지 못했습니다.", EXIT_CODES.AUTH));
-        }
-      } catch (requestError) {
-        reject(requestError);
-      }
-    });
+  const session = await client.createCliAuthSession({
+    clientName: "KLEPaaS CLI",
+    hostname: os.hostname(),
+    platform: `${process.platform}/${process.arch}`,
+    cliVersion: "1.0.0",
   });
 
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  const redirectUri = `http://127.0.0.1:${address.port}/callback`;
-  const oauthResponse = await client.getOAuthUrl("github", redirectUri);
-  const authUrl = oauthResponse.url;
+  console.log("브라우저에서 KLEPaaS CLI 로그인을 승인하세요.");
+  console.log(`승인 URL: ${session.verification_url}`);
+  console.log(`User Code: ${session.user_code}`);
+  console.log("브라우저가 열리지 않으면 위 URL을 직접 열어 승인하세요.");
+  openBrowser(session.verification_url);
 
-  console.log(`브라우저에서 인증을 시작합니다: ${authUrl}`);
-  openBrowser(authUrl);
+  const deadline = Date.now() + 5 * 60 * 1000;
+  while (Date.now() < deadline) {
+    const latest = await client.getCliAuthSession(session.session_id);
 
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new CliError("OAuth 인증 시간이 초과되었습니다.", EXIT_CODES.TIMEOUT)), 120000)
-  );
+    if (latest.status === "APPROVED") {
+      const exchanged = await client.exchangeCliAuthSession(latest.session_id, latest.user_code);
+      await saveProfileTokens(
+        globalOptions,
+        {
+          access_token: exchanged.token,
+          refresh_token: null,
+        },
+        globalOptions.baseUrl || DEFAULT_BASE_URL,
+        client
+      );
+      return;
+    }
 
-  try {
-    const oauthCode = await Promise.race([codePromise, timeoutPromise]);
-    const tokens = await client.exchangeOAuthCode(oauthCode, redirectUri);
-    await saveProfileTokens(globalOptions, tokens, globalOptions.baseUrl || DEFAULT_BASE_URL, client);
-  } finally {
-    server.close();
+    if (latest.status === "REJECTED") {
+      throw new CliError("웹에서 CLI 로그인 요청이 거부되었습니다.", EXIT_CODES.AUTH);
+    }
+
+    if (latest.status === "EXPIRED") {
+      throw new CliError("CLI 로그인 세션이 만료되었습니다. 다시 시도하세요.", EXIT_CODES.TIMEOUT);
+    }
+
+    if (latest.status === "CONSUMED") {
+      throw new CliError("이 CLI 로그인 세션은 이미 사용되었습니다.", EXIT_CODES.AUTH);
+    }
+
+    await sleep((latest.poll_interval_seconds || 3) * 1000);
   }
+
+  throw new CliError("CLI 로그인 시간이 초과되었습니다.", EXIT_CODES.TIMEOUT);
 }
 
 async function handleWhoAmI(globalOptions, client) {
@@ -643,6 +646,10 @@ Config:
   default base url: ${DEFAULT_BASE_URL}
   config path: ${getConfigPath().replace(homeDir, "~")}
 `);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 main().catch((error) => {

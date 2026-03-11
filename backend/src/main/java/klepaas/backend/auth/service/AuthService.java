@@ -25,11 +25,11 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
 
-    public String getOAuthUrl(String provider, String redirectUri) {
+    public String getOAuthUrl(String provider, String redirectUri, String state) {
         if (!"github".equalsIgnoreCase(provider)) {
             throw new InvalidRequestException(ErrorCode.INVALID_REQUEST, "지원하지 않는 OAuth 프로바이더: " + provider);
         }
-        return gitHubOAuthClient.getAuthorizationUrl(redirectUri);
+        return gitHubOAuthClient.getAuthorizationUrl(redirectUri, state);
     }
 
     @Transactional

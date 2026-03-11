@@ -29,14 +29,16 @@ public class GitHubOAuthClient {
         this.restClient = RestClient.create();
     }
 
-    public String getAuthorizationUrl(String redirectUriOverride) {
+    public String getAuthorizationUrl(String redirectUriOverride, String state) {
         String resolvedRedirectUri = resolveRedirectUri(redirectUriOverride);
-        return UriComponentsBuilder.fromUriString("https://github.com/login/oauth/authorize")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString("https://github.com/login/oauth/authorize")
                 .queryParam("client_id", clientId)
                 .queryParam("redirect_uri", resolvedRedirectUri)
-                .queryParam("scope", "user:email,read:user")
-                .build()
-                .toUriString();
+                .queryParam("scope", "user:email,read:user");
+        if (state != null && !state.isBlank()) {
+            builder.queryParam("state", state);
+        }
+        return builder.build().toUriString();
     }
 
     public GitHubTokenResponse exchangeCode(String code, String redirectUriOverride) {

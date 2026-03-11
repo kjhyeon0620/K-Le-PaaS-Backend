@@ -25,8 +25,9 @@ public class AuthController {
     @GetMapping("/oauth2/url/{provider}")
     public ApiResponse<Map<String, String>> getOAuthUrl(
             @PathVariable String provider,
-            @RequestParam(required = false) String redirectUri) {
-        String url = authService.getOAuthUrl(provider, redirectUri);
+            @RequestParam(required = false) String redirectUri,
+            @RequestParam(required = false) String state) {
+        String url = authService.getOAuthUrl(provider, redirectUri, state);
         return ApiResponse.success(Map.of("url", url));
     }
 
