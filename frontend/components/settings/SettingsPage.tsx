@@ -9,6 +9,7 @@ import { EnvironmentsClustersSection, EnvironmentItem } from "./EnvironmentsClus
 import { SlackNotificationsSection, SlackSettings } from "./SlackNotificationsSection"
 import { MCPConnectorsSection, MCPSettings } from "./MCPConnectorsSection"
 import { AgentsBridgesSection, AgentRow, BridgeRow } from "./AgentsBridgesSection"
+import { CliTokensSection } from "./CliTokensSection"
 
 type SettingsDraft = {
   organization: OrganizationSettings
@@ -95,7 +96,7 @@ export function SettingsPage() {
     <div className="space-y-6">
       <SettingsHeader
         title="Settings"
-        subtitle="이 페이지는 프론트엔드 데모입니다. 실제 설정 적용/저장은 이루어지지 않으며, 변경 사항은 브라우저에만 임시 저장됩니다."
+        subtitle="대부분의 설정 섹션은 프론트엔드 데모이며 브라우저에만 임시 저장됩니다. 단, CLI 토큰 섹션은 실제 백엔드 API와 연동됩니다."
         onSave={handleSave}
         onCancel={handleCancel}
         saveDisabled={!dirty}
@@ -106,6 +107,7 @@ export function SettingsPage() {
           <TabsTrigger value="organization">조직</TabsTrigger>
           <TabsTrigger value="env">환경 & 클러스터</TabsTrigger>
           <TabsTrigger value="slack">Slack 알림</TabsTrigger>
+          <TabsTrigger value="cli">CLI 토큰</TabsTrigger>
           <TabsTrigger value="mcp">MCP 커넥터</TabsTrigger>
           <TabsTrigger value="agents">에이전트 & 브리지</TabsTrigger>
         </TabsList>
@@ -123,6 +125,10 @@ export function SettingsPage() {
 
         <TabsContent value="slack" className="mt-4">
           <SlackNotificationsSection value={draft.slack} onChange={(v) => setDraft({ ...draft, slack: v })} />
+        </TabsContent>
+
+        <TabsContent value="cli" className="mt-4">
+          <CliTokensSection />
         </TabsContent>
 
         <TabsContent value="mcp" className="mt-4">

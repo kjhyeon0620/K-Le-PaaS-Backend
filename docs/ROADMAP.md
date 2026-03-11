@@ -50,6 +50,20 @@ kubernetesClient.pods()
 - 빌드 로그: `klepaas-build-{deploymentId}` Job Pod
 - 앱 로그: `{owner}-{repoName}` Deployment Pod
 
+### 6-4. CLI 기반 제어면
+
+웹 콘솔을 대체하지 않는 보조 제어면으로 CLI를 도입했다. 상세 방향은 [`docs/CLI_STRATEGY.md`](CLI_STRATEGY.md), 사용법은 [`docs/CLI_REFERENCE.md`](CLI_REFERENCE.md) 참조.
+
+- 구현 완료:
+  - `auth`, `ask`, `confirm`, `history`, `deployments`
+  - 비용 MVP: `cost plan`, `cost diff`, `cost explain`, `cost check`
+  - 공통 계약: `--json`, `--quiet`, 종료 코드 표준화
+  - 인증: 웹 승인형 `auth login --web`, 웹 발급형 `CLI Token`, 머신용 `auth login --token`
+- 후속 작업:
+  - `doctor`, `logs`, `wait`
+  - CLI 배포/릴리스 방식 정리
+  - 비용 모델 고도화
+
 ---
 
 ## Phase 7 — GitOps (자동 배포)

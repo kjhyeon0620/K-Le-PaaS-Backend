@@ -63,10 +63,9 @@ class ApiClient {
   // ─── Auth ────────────────────────────────────────────────────────────────
 
   async loginWithOAuth2(provider: 'google' | 'github', code: string, redirectUri: string) {
-    // Backend only accepts { code }; provider/redirect_uri are ignored
     return this.request('/api/v1/auth/oauth2/login', {
       method: 'POST',
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, redirect_uri: redirectUri }),
     })
   }
 
@@ -110,9 +109,69 @@ class ApiClient {
     return this.request('/api/v1/auth/me')
   }
 
+  async getCliAccessTokens() {
+    return this.request<CliAccessTokenResponse[]>('/api/v1/cli-tokens')
+  }
+
+  async createCliAccessToken(payload: { name: string; expiresInDays: number }) {
+    return this.request<CreateCliAccessTokenResponse>('/api/v1/cli-tokens', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: payload.name,
+        expires_in_days: payload.expiresInDays,
+      }),
+    })
+  }
+
+  async revokeCliAccessToken(tokenId: number) {
+    return this.request('/api/v1/cli-tokens/' + tokenId, {
+      method: 'DELETE',
+    })
+  }
+
   // OAuth2 URL generation — backend returns { url: "https://github.com/..." }
-  async getOAuth2Url(provider: 'google' | 'github') {
-    return this.request(`/api/v1/auth/oauth2/url/${provider}`)
+  async getOAuth2Url(
+    provider: 'google' | 'github',
+    options?: { redirectUri?: string; state?: string }
+  ) {
+    const search = new URLSearchParams()
+    if (options?.redirectUri) search.set('redirectUri', options.redirectUri)
+    if (options?.state) search.set('state', options.state)
+    const suffix = search.toString() ? `?${search.toString()}` : ''
+    return this.request(`/api/v1/auth/oauth2/url/${provider}${suffix}`)
+  }
+
+  async createCliAuthSession(payload: {
+    clientName: string
+    hostname: string
+    platform: string
+    cliVersion: string
+  }) {
+    return this.request<CliAuthSessionResponse>('/api/v1/cli-auth/sessions', {
+      method: 'POST',
+      body: JSON.stringify({
+        client_name: payload.clientName,
+        hostname: payload.hostname,
+        platform: payload.platform,
+        cli_version: payload.cliVersion,
+      }),
+    })
+  }
+
+  async getCliAuthSession(sessionId: string) {
+    return this.request<CliAuthSessionResponse>(`/api/v1/cli-auth/sessions/${sessionId}`)
+  }
+
+  async approveCliAuthSession(sessionId: string) {
+    return this.request(`/api/v1/cli-auth/sessions/${sessionId}/approve`, {
+      method: 'POST',
+    })
+  }
+
+  async rejectCliAuthSession(sessionId: string) {
+    return this.request(`/api/v1/cli-auth/sessions/${sessionId}/reject`, {
+      method: 'POST',
+    })
   }
 
   async verifyToken() {
@@ -717,6 +776,34 @@ export interface ScalingHistoryResponse {
     status: string
   }>
   total_count: number
+}
+
+export interface CliAccessTokenResponse {
+  id: number
+  name: string
+  token_prefix: string
+  expires_at: string
+  last_used_at: string | null
+  revoked_at: string | null
+  created_at: string
+}
+
+export interface CreateCliAccessTokenResponse {
+  token: string
+  metadata: CliAccessTokenResponse
+}
+
+export interface CliAuthSessionResponse {
+  session_id: string
+  user_code: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'CONSUMED'
+  client_name: string
+  hostname: string
+  platform: string
+  cli_version: string
+  expires_at: string
+  poll_interval_seconds: number
+  verification_url: string
 }
 
 export const apiClient = new ApiClient()

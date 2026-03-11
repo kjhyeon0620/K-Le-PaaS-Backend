@@ -37,8 +37,14 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin())) // H2 Console
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/v1/auth/me").authenticated()
                         .requestMatchers("/api/v1/auth/logout").authenticated()
+                        .requestMatchers("/api/v1/cli-tokens/**").authenticated()
+                        .requestMatchers("/api/v1/cli-auth/sessions/*/approve").authenticated()
+                        .requestMatchers("/api/v1/cli-auth/sessions/*/reject").authenticated()
+                        .requestMatchers("/api/v1/users/me").authenticated()
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/v1/cli-auth/sessions/**").permitAll()
                         .requestMatchers("/api/v1/system/**").permitAll()
                         .requestMatchers("/api/v1/webhooks/**").permitAll()
                         .requestMatchers("/api/v1/ws/**").permitAll()
