@@ -1,227 +1,253 @@
-# KLEPaaS Backend
+# K-Le-PaaS Backend
 
-Spring Boot 기반 백엔드. GitHub OAuth 인증, Gemini AI 자연어 처리, NCP 인프라 연동, Kubernetes 배포 파이프라인을 담당한다.
+K-Le-PaaS 백엔드는 자연어/CLI/Web 요청을 감사 가능하고 위험도 분류된 Kubernetes 운영 작업으로 변환하는 Spring Boot 기반 control plane입니다.
 
----
+백엔드는 인증, 저장소 등록, 배포 파이프라인, Kubernetes apply, 자연어 명령 처리, 위험 명령 confirmation, 비용 추정, Slack/WebSocket 알림, GitHub webhook 처리를 담당합니다.
+
+## 역할
+
+- GitHub OAuth 로그인과 JWT 발급
+- GitHub App installation token 기반 저장소 접근
+- CLI token 발급, 조회, 폐기
+- Web 승인형 CLI login session 처리
+- 저장소 등록과 배포 설정 관리
+- GitHub ZIP source download와 repackaging
+- NCP Object Storage upload
+- Kaniko Kubernetes Job 기반 이미지 빌드
+- commit SHA 기반 image URI 생성
+- Fabric8 Kubernetes Client 기반 Deployment, Service, Ingress apply
+- Gemini 2.5 Flash 기반 자연어 intent parsing
+- LOW / MEDIUM / HIGH risk classification
+- MEDIUM / HIGH 명령 confirmation flow
+- command log와 command history 저장
+- spec 기반 cost plan, diff, explain, check
+- Slack Incoming Webhook 알림 MVP
+- 인증된 WebSocket 배포 이벤트 MVP
+- GitHub push webhook 기반 자동 배포 MVP
 
 ## 기술 스택
 
 | 항목 | 내용 |
-|------|------|
-| **언어/프레임워크** | Java 17, Spring Boot 4.0.2 |
-| **ORM** | Spring Data JPA (Hibernate 6) |
-| **DB** | H2 (개발) / PostgreSQL (운영) |
-| **HTTP Client** | Spring RestClient (GitHub API, Gemini API) |
-| **K8s Client** | Fabric8 Kubernetes Client |
-| **Cloud SDK** | AWS SDK V2 (NCP Object Storage S3 호환) |
-| **인증** | Spring Security, JWT (HS256), GitHub OAuth2 |
-| **빌드** | Gradle |
-| **JSON** | Jackson (`SNAKE_CASE` — 프론트엔드 호환 필수) |
-
----
+|---|---|
+| Language | Java 17 |
+| Framework | Spring Boot 4.0.2 |
+| Persistence | Spring Data JPA, Hibernate, H2 개발 DB, PostgreSQL 운영 DB 가능 |
+| HTTP client | Spring RestClient |
+| Kubernetes | Fabric8 Kubernetes Client |
+| Cloud SDK | AWS SDK v2, NCP Object Storage S3 호환 API |
+| Auth | Spring Security, JWT, GitHub OAuth |
+| API docs | Springdoc OpenAPI |
+| Build | Gradle |
+| JSON contract | Jackson `SNAKE_CASE` |
 
 ## 패키지 구조
 
-```
+```text
 klepaas.backend/
-├── ai/                         # NLP/AI 처리
-│   ├── client/                 # GeminiClient (RestClient 패턴)
-│   ├── config/                 # GeminiConfig
-│   ├── controller/             # NlpController
-│   ├── dto/                    # NlpCommandRequest/Response, ParsedIntent 등
-│   ├── entity/                 # CommandLog, ConversationSession, Intent, RiskLevel
-│   ├── exception/              # AiProcessingException
-│   ├── repository/             # CommandLogRepository, ConversationSessionRepository
-│   └── service/
-│       ├── NlpCommandService   # 오케스트레이터 (프롬프트 → Gemini → 파싱 → 실행)
-│       ├── IntentParser        # Gemini JSON 응답 → ParsedIntent 변환
-│       ├── ActionDispatcher    # Intent → 서비스 메서드 매핑 + 리스크 분류
-│       └── KubectlService      # Fabric8로 K8s 직접 조회 (pods/services/logs 등)
-│
-├── auth/                       # 인증/인가
-│   ├── config/                 # SecurityConfig, CustomUserDetails
-│   ├── controller/             # AuthController
-│   ├── dto/                    # TokenResponse, GitHubUserResponse 등
-│   ├── jwt/                    # JwtTokenProvider, JwtAuthenticationFilter
-│   ├── oauth/                  # GitHubOAuthClient, GitHubAppJwtProvider, GitHubAppClient
-│   └── service/
-│       ├── AuthService         # GitHub OAuth 로그인 플로우, JWT 발급
-│       └── GitHubInstallationTokenService  # GitHub App 설치 토큰 취득/캐싱
-│
-├── deployment/                 # 배포 도메인
-│   ├── controller/             # DeploymentController, RepositoryController
-│   ├── dto/                    # CreateDeploymentRequest, DeploymentResponse 등
-│   ├── entity/                 # Deployment, SourceRepository, DeploymentConfig, DeploymentStatus
-│   ├── repository/             # DeploymentRepository, SourceRepositoryRepository 등
-│   └── service/
-│       ├── DeploymentService   # 배포 CRUD, 스케일, 재시작
-│       ├── DeploymentPipelineService  # 비동기 배포 파이프라인 (5단계)
-│       └── RepositoryService   # 저장소 등록/조회
-│
-├── infra/                      # 클라우드 인프라 추상화
-│   ├── CloudInfraProvider      # 인터페이스 (uploadSource, triggerBuild, getBuildStatus)
-│   ├── CloudInfraProviderFactory  # CloudVendor → Bean 선택 (Strategy Pattern)
-│   ├── config/                 # S3Config, KubernetesConfig, RestClientConfig
-│   ├── dto/                    # BuildResult, BuildStatusResult
-│   ├── kubernetes/
-│   │   └── KubernetesManifestGenerator  # Deployment + Service + Ingress 생성/업데이트
-│   └── service/
-│       └── NcpInfraService     # NCP 구현체 (GitHub ZIP → Object Storage → Kaniko Job)
-│
-├── user/                       # 사용자 관리
-│   ├── controller/             # UserController
-│   ├── entity/                 # User, Role
-│   ├── repository/             # UserRepository
-│   └── service/                # UserService
-│
-└── global/                     # 공통 인프라
-    ├── config/                 # AsyncConfig, JpaConfig, SwaggerConfig
-    ├── controller/             # SystemController (헬스체크)
-    ├── dto/                    # ApiResponse<T>, ErrorResponse
-    ├── entity/                 # BaseTimeEntity (JPA Auditing)
-    ├── exception/              # GlobalExceptionHandler, ErrorCode, 각종 예외 클래스
-    └── service/
-        └── NotificationService  # 알림 인터페이스 (Slack 구현체 미작성)
+├── ai/          # Gemini client, intent parser, dispatcher, NLP command API
+├── auth/        # GitHub OAuth, JWT, CLI token, CLI web login
+├── cost/        # 비용 추정, diff, explain, budget check
+├── deployment/  # repository, deployment, scaling, pipeline orchestration
+├── global/      # 공통 응답, 예외, WebSocket, Slack notification, system API
+├── infra/       # CloudInfraProvider, NCP infra, Kubernetes manifest apply
+├── user/        # 사용자 조회
+└── webhook/     # GitHub webhook 수신과 push event 처리
 ```
 
----
-
-## API 엔드포인트
+## 주요 API
 
 ### 인증
-```
-GET  /api/v1/auth/oauth2/url/{provider}   OAuth 인증 URL 생성 (provider: github)
-POST /api/v1/auth/oauth2/login            GitHub OAuth 코드 교환 → JWT 발급
-GET  /api/v1/auth/me                      현재 사용자 정보 (JWT 필요)
-POST /api/v1/auth/refresh                 액세스 토큰 갱신
-```
 
-### 저장소
-```
-POST   /api/v1/repositories              저장소 등록 { owner, repo_name, git_url, cloud_vendor }
-GET    /api/v1/repositories              내 저장소 목록
-GET    /api/v1/repositories/{id}         저장소 상세
-DELETE /api/v1/repositories/{id}         저장소 삭제
-GET    /api/v1/repositories/{id}/config  배포 설정 조회
-PUT    /api/v1/repositories/{id}/config  배포 설정 변경
+```text
+GET  /api/v1/auth/oauth2/url/{provider}
+POST /api/v1/auth/oauth2/login
+GET  /api/v1/auth/me
+POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
 ```
 
-### 배포
-```
-POST /api/v1/deployments                 배포 요청 { repository_id, branch_name, commit_hash }
-GET  /api/v1/deployments                 배포 목록 (페이징, ?repositoryId=N)
-GET  /api/v1/deployments/{id}            배포 상세
-GET  /api/v1/deployments/{id}/status     배포 상태
-GET  /api/v1/deployments/{id}/logs       배포 로그 (TODO: Kaniko Pod 로그 스트리밍)
-POST /api/v1/deployments/{id}/scale      스케일링 { replicas }
-POST /api/v1/deployments/{id}/restart    재시작
-```
+### CLI 인증
 
-### NLP 자연어 명령
-```
-POST /api/v1/nlp/command   명령 처리 { command, session_id? }
-POST /api/v1/nlp/confirm   위험 명령 확인/취소 { command_log_id, confirmed }
-GET  /api/v1/nlp/history   명령 이력 (페이징)
+```text
+POST   /api/v1/cli-tokens
+GET    /api/v1/cli-tokens
+DELETE /api/v1/cli-tokens/{id}
+
+POST /api/v1/cli-auth/sessions
+GET  /api/v1/cli-auth/sessions/{id}
+POST /api/v1/cli-auth/sessions/{id}/approve
+POST /api/v1/cli-auth/sessions/{id}/reject
+POST /api/v1/cli-auth/sessions/{id}/exchange
 ```
 
-### 시스템
-```
-GET /api/v1/system/health   헬스체크
-GET /api/v1/system/version  버전 정보
-```
+### 저장소와 배포
 
----
+```text
+POST   /api/v1/repositories
+GET    /api/v1/repositories
+GET    /api/v1/repositories/{id}
+DELETE /api/v1/repositories/{id}
+GET    /api/v1/repositories/{id}/config
+PUT    /api/v1/repositories/{id}/config
+GET    /api/v1/repositories/{repositoryId}/scaling-history
 
-## 주요 설계 결정
-
-### 배포 파이프라인 — Kaniko K8s Job
-
-초기 설계(NCP SourceBuild)에서 변경. NCP SourceBuild는 Object Storage를 source로 지원하지 않아 Kaniko K8s Job 방식으로 전환.
-
-```
-initContainer(amazon/aws-cli)
-  → aws s3 cp s3://{bucket}/builds/{id}/source.zip --endpoint-url {NCP_ENDPOINT}
-  → python3 unzip → /workspace (emptyDir)
-
-kaniko
-  → --context=dir:///workspace
-  → --destination={NCR_ENDPOINT}/{owner}-{repo}:{shortSha}
+POST /api/v1/deployments
+GET  /api/v1/deployments?repositoryId={repositoryId}
+GET  /api/v1/deployments/{id}
+GET  /api/v1/deployments/{id}/status
+GET  /api/v1/deployments/{id}/logs
+POST /api/v1/deployments/{id}/scale
+POST /api/v1/deployments/{id}/restart
 ```
 
-### AI 모듈 — Java 내장 Gemini 직접 호출
+`/api/v1/deployments/{id}/logs`는 현재 endpoint만 있고 실제 Kaniko/app pod log streaming은 아직 일부 구현 상태입니다.
 
-Python 워커 없이 Spring Boot 단일 프로세스에서 Gemini REST API를 직접 호출. `RestClient` + `@Value` 기반 설정.
+### 자연어 명령
 
-### K8s 매니페스트 — fabric8 직접 apply
+```text
+POST /api/v1/nlp/command
+POST /api/v1/nlp/confirm
+GET  /api/v1/nlp/history
+```
 
-Helm CLI 의존성 없이 fabric8 `serverSideApply()`로 Deployment + Service + Ingress를 직접 생성/업데이트.
+LOW risk 명령은 즉시 실행됩니다. MEDIUM / HIGH risk 명령은 command log에 저장된 뒤 `/api/v1/nlp/confirm`으로 확인되어야 실행됩니다.
 
-### 비동기 파이프라인 타이밍 버그 해결
+### 비용
 
-`@Async` + `@Transactional` 동시 사용 시 트랜잭션 커밋 전에 비동기 스레드가 DB를 조회하는 문제를 `TransactionSynchronizationManager.registerSynchronization(afterCommit → executePipeline)`으로 해결.
+```text
+POST /api/v1/cost/plan
+POST /api/v1/cost/diff
+POST /api/v1/cost/explain
+POST /api/v1/cost/check
+```
 
----
+현재 비용 모델은 실제 billing API가 아니라 배포 spec 기반 추정 모델입니다.
+
+### WebSocket, Webhook, System
+
+```text
+WS   /api/v1/ws/deployments?token={jwt}
+POST /api/v1/webhooks/github
+GET  /api/v1/system/health
+GET  /api/v1/system/version
+```
+
+WebSocket은 query string의 JWT를 검증하고 사용자별 배포 이벤트를 전송합니다.
+
+## 배포 파이프라인
+
+```text
+Deployment 생성
+  -> transaction commit 이후 비동기 pipeline 시작
+  -> GitHub ZIP source download
+  -> top-level directory 제거 후 repackaging
+  -> NCP Object Storage upload
+  -> Kaniko Kubernetes Job 생성
+  -> initContainer가 source.zip을 emptyDir로 복사/해제
+  -> Kaniko가 dir:///workspace context로 image build
+  -> NCR에 {owner}-{repo}:{shortSha} push
+  -> Fabric8 server-side apply로 Deployment/Service/Ingress 반영
+  -> Slack/WebSocket 알림과 deployment status update
+```
+
+## 현재 구현 상태
+
+| 영역 | 상태 | 메모 |
+|---|---|---|
+| GitHub OAuth / JWT | 구현 MVP | OAuth login, refresh, logout API 존재 |
+| GitHub App source access | 구현 MVP | installation token과 ZIP download 경로 존재 |
+| NCP Object Storage / Kaniko / NCR | 구현 MVP | NCP 중심 구현, AWS/ON_PREMISE provider는 예정 |
+| Kubernetes apply | 구현 MVP | Deployment, Service, Ingress apply 존재 |
+| 자연어 명령 / risk confirmation | 구현 MVP | `ActionDispatcher`와 `NlpCommandService`에서 처리 |
+| CLI token / web login | 구현 MVP | CLI token과 browser approval flow 존재 |
+| Cost guardrails | 구현 MVP | spec 기반 추정과 budget check 존재 |
+| Slack / WebSocket | 구현 MVP | 운영 환경 설정과 frontend 정합성 확인 필요 |
+| GitHub webhook | 구현 MVP | global secret 기반 push auto deploy |
+| Scaling history | 구현 MVP | scale 이력 저장/조회 존재 |
+| Deployment logs | 일부 구현 | placeholder 응답, 실제 log 조회 필요 |
+| Monitoring metrics | 예정 | backend metrics API 없음 |
+| MCP / IaC | 예정 | backend 구현 없음 |
 
 ## 환경변수
 
-`backend/.env` 파일 (`.env[.properties]` 형식으로 자동 로드):
+`backend/.env` 파일은 `application.yaml`에서 optional import됩니다.
 
 ```env
-# GitHub OAuth App
+APP_BASE_URL=http://localhost:3000/console
+CORS_ALLOWED_ORIGINS=http://localhost:3000
+
+JWT_SECRET=
+
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
 GITHUB_REDIRECT_URI=http://localhost:3000/console/auth/callback
-
-# GitHub App (저장소 접근용)
 GITHUB_APP_ID=
-GITHUB_APP_PRIVATE_KEY=      # PEM 전체 내용 (줄바꿈 \n 처리)
+GITHUB_APP_PRIVATE_KEY=
 GITHUB_APP_SLUG=
+GITHUB_WEBHOOK_SECRET=
 
-# NCP Object Storage
 NCP_ACCESS_KEY=
 NCP_SECRET_KEY=
 NCP_STORAGE_BUCKET=
+NCR_ENDPOINT=
 
-# NCP Container Registry
-NCR_ENDPOINT=                 # 예: klepaas.kr.ncr.ntruss.com
-
-# Kubernetes
 K8S_NAMESPACE=default
-K8S_IMAGE_PULL_SECRET=ncp-cr  # docker-registry Secret 이름
-
-# Kaniko
+K8S_IMAGE_PULL_SECRET=ncp-cr
 KANIKO_IMAGE=gcr.io/kaniko-project/executor:latest
 
-# Gemini
-GEMINI_API_KEY=
-GEMINI_MODEL=gemini-2.5-flash  # 선택사항 (기본값)
+SLACK_WEBHOOK_URL=
 
-# JWT
-JWT_SECRET=                   # openssl rand -hex 32
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
----
+비밀값은 커밋하지 않습니다.
 
-## 로컬 개발
+## 로컬 실행
 
 ```bash
-# 환경변수 설정 후
+cd backend
 ./gradlew bootRun
-
-# 빌드만
-./gradlew build
-
-# 테스트 (현재 테스트 없음 - Phase 6 예정)
-./gradlew test
 ```
 
-H2 콘솔: `http://localhost:8080/h2-console`
-- JDBC URL: `jdbc:h2:file:./data/klepaas`
-- Username: `sa`
+개발 프로파일에서 H2 console을 쓰려면 `dev` profile을 사용합니다.
 
----
+```bash
+cd backend
+./gradlew bootRun --args='--spring.profiles.active=dev'
+```
 
-## 상세 문서
+기본 API 주소:
 
+```text
+http://localhost:8080
+```
+
+Swagger UI는 Springdoc 기본 경로를 사용합니다.
+
+```text
+http://localhost:8080/swagger-ui/index.html
+```
+
+## 검증
+
+```bash
+cd backend
+./gradlew test
+./gradlew build
+```
+
+Kubernetes 배포까지 확인할 때:
+
+```bash
+kubectl get jobs,pods,deploy,svc,ingress -n <namespace>
+kubectl describe pod <pod-name> -n <namespace>
+kubectl logs <pod-name> -n <namespace>
+kubectl rollout status deployment/<deployment-name> -n <namespace>
+```
+
+## 관련 문서
+
+- [프로젝트 README](../README.md)
 - [CLI 전략](../docs/CLI_STRATEGY.md)
 - [CLI 레퍼런스](../docs/CLI_REFERENCE.md)
