@@ -223,6 +223,5 @@ H2 콘솔: `http://localhost:8080/h2-console`
 
 ## 상세 문서
 
-- [아키텍처 결정 사항](claudedocs/project-direction.md) — 설계 변경 이력, Strategy Pattern, Source Staging 플로우 상세
-- [프로젝트 진행 현황](../docs/PROJECT_STATUS.md)
-- [로드맵](../docs/ROADMAP.md)
+- [CLI 전략](../docs/CLI_STRATEGY.md)
+- [CLI 레퍼런스](../docs/CLI_REFERENCE.md)
